@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Farmer Returns</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <!-- Navigation Bar -->
+    <header>
+        <ul>
+            {% for option in nav_options %}
+            <li><a href="{{ option.url }}">{{ option.name }}</a></li>
+            {% endfor %}
+            <!-- Logout Link -->
+            <li><a href="{{ url_for('profile.logout') }}">Logout</a></li>
+        </ul>
+    </header>
+
+    <h1>Customer Returns</h1>
+    <ul>
+        {% for return_item in returns %}
+        <li>{{ return_item.name }} - Reason: {{ return_item.reason }}</li>
+        {% endfor %}
+    </ul>
+</body>
+</html>

@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Login or Create Account</title>
+</head>
+<body>
+    <h1>Login</h1>
+    <form method="POST" action="{{ url_for('profile.login') }}">
+    <input type="hidden" name="action" value="login">
+    <label>Username:</label>
+    <input type="text" name="username" required>
+    <label>Password:</label>
+    <input type="password" name="password" required>
+    <button type="submit">Login</button>
+</form>
+
+<h2>or Create an Account</h2>
+<form method="POST" action="{{ url_for('profile.login') }}">
+    <input type="hidden" name="action" value="create_account">
+    <label>Username:</label>
+    <input type="text" name="username" required>
+    <label>Password:</label>
+    <input type="password" name="password" required>
+    <label>Role:</label>
+    <select name="role">
+        <option value="customer">Customer</option>
+        <option value="farmer">Farmer</option>
+    </select>
+    <button type="submit">Create Account</button>
+</form>
+
+</body>
+</html>
