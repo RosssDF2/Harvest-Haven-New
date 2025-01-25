@@ -14,25 +14,26 @@ def returns():
     user_id = session.get('user_id')
     ownership = db_manager.get_ownership(user_id)
     owned_products_ids = ownership.get("products", [])
-    returned_items = ownership.get("returns", {})
+    returned_items = ownership.get("returns", {})  # Ensure returns is a dictionary
     all_products = db_manager.get_products()
 
-    # Prepare items for the return section
-    purchased_products = []
+    # Prepare items for the return section (group by product ID and sum quantities)
+    product_quantities = {}
     for product_id in owned_products_ids:
         if product_id in all_products:
-            total_purchased = owned_products_ids.count(product_id)
-            total_returned = returned_items.get(product_id, 0)
+            product_quantities[product_id] = product_quantities.get(product_id, 0) + 1
 
-            if total_returned < total_purchased:
-                purchased_products.append({
-                    "id": product_id,
-                    "name": all_products[product_id]["name"],
-                    "remaining": total_purchased - total_returned
-                })
+    purchased_products = []
+    for product_id, quantity in product_quantities.items():
+        total_returned = returned_items.get(product_id, 0)
+        if total_returned < quantity:
+            purchased_products.append({
+                "id": product_id,
+                "name": all_products[product_id]["name"],
+                "remaining": quantity - total_returned,
+            })
 
     nav_options = db_manager.get_nav_options(session.get('role'))
-    print("Purchased Products for Returns:", purchased_products)  # Debugging Output
     return render_template(
         "customer_returns.html",
         products=purchased_products,
@@ -76,8 +77,14 @@ def submit_return():
 def farmer_returns():
     """Display customer returns for farmers."""
     if session.get('role') != 'farmer':
-        flash("Access denied! Only farmers can view this page.", "error")
-        return redirect(url_for('profile.home'))
+        flash("Access denied! Only farmers can access this page.", "error")
+        return redirect(url_for('profile.profile'))
 
     returns = db_manager.get_ownership(session.get('user_id')).get("returns", [])
-    return render_template("farmer_returns.html", returns=returns)
+    nav_options = db_manager.get_nav_options(session.get('role'))  # Ensure nav_options is included
+    return render_template(
+        "farmer_returns.html",
+        returns=returns,
+        nav_options=nav_options  # Pass nav_options to the template
+    )
+
