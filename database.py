@@ -1,9 +1,9 @@
 import shelve
 import os
-from datetime import datetime
-
+from datetime import datetime, timedelta
 
 DATABASE_FILE = os.path.join(os.path.dirname(__file__), "central_database.db")
+
 
 class EnhancedDatabaseManager:
     def __init__(self, db_name=DATABASE_FILE):
@@ -40,38 +40,25 @@ class EnhancedDatabaseManager:
                         "name": "Carrot",
                         "price": 1.50,
                         "quantity": 100,
-                        "category": "Vegetable",
+                        "category": "Vegetables",
                         "image_url": "placeholder.png",
+                        "uploaded_by": "farmer1",  # Add the farmer's username
                     },
                     2: {
                         "name": "Tomato",
                         "price": 2.00,
                         "quantity": 50,
-                        "category": "Vegetable",
+                        "category": "Vegetables",
                         "image_url": "placeholder.png",
-                    },
-                    3: {
-                        "name": "Potato",
-                        "price": 1.20,
-                        "quantity": 75,
-                        "category": "Vegetable",
-                        "image_url": "placeholder.png",
+                        "uploaded_by": "farmer2",
                     },
                 }
 
             # Default ownership
             if "ownership" not in db:
                 db["ownership"] = {
-                    "farmer1": {
-                        "products": [1, 2, 3],  # IDs of products managed by Farmer 1
-                        "returns": {},  # Updated to dictionary
-                        "plants": [],
-                    },
-                    "customer1": {
-                        "products": [],  # Initially no purchased products
-                        "returns": {},  # Updated to dictionary
-                        "plants": [],
-                    },
+                    "farmer1": {"products": [1, 2, 3], "returns": {}, "plants": []},
+                    "customer1": {"products": [], "returns": {}, "plants": []},
                 }
 
             # Default rewards
@@ -86,6 +73,25 @@ class EnhancedDatabaseManager:
                 db["discounted_items"] = {
                     1: {"name": "Discounted Carrot", "price": 1.00, "stock": 20},
                     2: {"name": "Discounted Tomato", "price": 1.50, "stock": 15},
+                }
+
+            if "tree_types" not in db:
+                db["tree_types"] = {
+                    "mango": {
+                        "name": "Mango Tree",
+                        "price": 5.0,  # Price in dollars
+                        "investment_return": 50.0,  # Expected investment value in dollars
+                    },
+                    "avocado": {
+                        "name": "Avocado Tree",
+                        "price": 7.0,
+                        "investment_return": 70.0,
+                    },
+                    "apple": {
+                        "name": "Apple Tree",
+                        "price": 6.0,
+                        "investment_return": 60.0,
+                    },
                 }
 
     def get_users(self):
@@ -112,15 +118,14 @@ class EnhancedDatabaseManager:
         with shelve.open(self.db_name) as db:
             return db.get("reward_products", {})
 
-
     def get_nav_options(self, role):
         """Return navigation options based on user role."""
         nav_options = {
             "farmer": [
+                {"name": "Profile", "url": "/profile/profile"},  # Ensure this is included
                 {"name": "Products", "url": "/products/"},
                 {"name": "Discounted Products", "url": "/discounted/"},
                 {"name": "Returns", "url": "/returns/farmer_returns"},
-                {"name": "Rewards", "url": "/rewards/"},
                 {"name": "Checkout", "url": "/checkout/farmer_purchases"},
             ],
             "customer": [
@@ -205,9 +210,13 @@ class EnhancedDatabaseManager:
 
     def get_transactions(self, user_id):
         """Retrieve the transaction history for a user."""
-        with shelve.open(self.db_name) as db:
-            transactions = db.get("transactions", {})
-            return transactions.get(user_id, [])
+        try:
+            with shelve.open(self.db_name) as db:
+                transactions = db.get("transactions", {})
+                return transactions.get(user_id, [])
+        except Exception as e:
+            print(f"Error reading transactions: {e}")
+            return []
 
     def save_products(self, products):
         """Save the updated products dictionary."""
@@ -224,9 +233,9 @@ class EnhancedDatabaseManager:
         Add a transaction to the user's history.
 
         :param user_id: ID of the user
-        :param product_name: Name of the purchased product
-        :param amount: Total cost of the transaction
-        :param quantity: Quantity of the product purchased
+        :param product_name: Name of the purchased or redeemed product
+        :param amount: Total cost of the transaction (0 for redemptions)
+        :param quantity: Quantity of the product purchased or redeemed
         """
         with shelve.open(self.db_name, writeback=True) as db:
             transactions = db.setdefault("transactions", {})
@@ -234,7 +243,7 @@ class EnhancedDatabaseManager:
 
             user_transactions.append({
                 "product_name": product_name,
-                "amount": round(amount, 2),
+                "amount": round(amount, 2),  # Will be 0 for redemptions
                 "quantity": quantity,
                 "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),  # Current date and time
             })
@@ -281,3 +290,38 @@ class EnhancedDatabaseManager:
                 "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             })
             print("Return Transactions for User:", return_transactions.get(user_id, []))
+
+
+def save_users(self, users):
+    """Save the updated users dictionary."""
+    with shelve.open(self.db_name, writeback=True) as db:
+        db["users"] = users
+
+
+def adjust_user_points(self, user_id, points_delta):
+    """
+    Adjust the user's points by adding or deducting points.
+
+    :param user_id: ID of the user
+    :param points_delta: Points to adjust (positive to add, negative to deduct)
+    :raises ValueError: If the user does not exist or insufficient points
+    """
+    with shelve.open(self.db_name, writeback=True) as db:
+        users = db.get("users", {})
+        user = users.get(user_id)
+
+        if not user:
+            raise ValueError(f"User with ID '{user_id}' not found.")
+
+        new_points = user.get("points", 0) + points_delta
+
+        if new_points < 0:
+            raise ValueError("Insufficient points for this transaction.")
+
+        user["points"] = new_points
+        users[user_id] = user
+        db["users"] = users
+
+
+
+

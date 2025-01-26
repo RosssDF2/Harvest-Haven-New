@@ -58,23 +58,34 @@ def add_discounted():
 
 @discounted_bp.route('/update_discounted/<int:item_id>', methods=['POST'])
 def update_discounted(item_id):
-    """Update a discounted product."""
-    if session.get('role') != 'farmer':
-        flash("Access denied! Only farmers can update discounted products.", "error")
-        return redirect(url_for('discounted.home'))
-
+    """Update discounted item details."""
     discounted_items = db_manager.get_all_items()
+
     if item_id not in discounted_items:
-        flash("Discounted product not found.", "error")
+        flash("Item not found.", "error")
         return redirect(url_for('discounted.home'))
 
-    discounted_items[item_id]['name'] = request.form.get('name')
-    discounted_items[item_id]['price'] = float(request.form.get('price'))
-    discounted_items[item_id]['stock'] = int(request.form.get('stock'))
-    db_manager.save_items(discounted_items)
+    # Retrieve and validate form inputs
+    price = request.form.get('price')
+    stock = request.form.get('stock')
 
-    flash("Discounted product updated successfully!", "success")
+    if not price or not stock:
+        flash("All fields (price and stock) are required.", "error")
+        return redirect(url_for('discounted.home'))
+
+    try:
+        # Update discounted item details
+        discounted_items[item_id]['price'] = float(price)
+        discounted_items[item_id]['stock'] = int(stock)
+        db_manager.save_items(discounted_items)
+
+        flash("Discounted product updated successfully.", "success")
+    except ValueError as e:
+        flash(f"Invalid input: {e}", "error")
+        return redirect(url_for('discounted.home'))
+
     return redirect(url_for('discounted.home'))
+
 
 @discounted_bp.route('/delete_discounted/<int:item_id>', methods=['POST'])
 def delete_discounted(item_id):

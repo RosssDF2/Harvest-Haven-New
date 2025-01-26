@@ -2,36 +2,89 @@
 <html>
 <head>
     <title>Farmer Products</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-    <h1>Manage Your Products</h1>
+<header>
     <ul>
-        {% for product in products %}
-        <li>
-            {{ product.name }} - ${{ product.price }} ({{ product.quantity }} in stock)
-            <!-- Update Product Form -->
-            <form method="POST" action="{{ url_for('products.update_product', product_id=product.id) }}">
-                <button type="submit">Edit</button>
-            </form>
-            <!-- Delete Product Form -->
-            <form method="POST" action="{{ url_for('products.delete_product', product_id=product.id) }}">
-                <button type="submit">Delete</button>
-            </form>
-        </li>
+        {% for option in nav_options %}
+        <li><a href="{{ option.url }}">{{ option.name }}</a></li>
         {% endfor %}
+        <li><a href="{{ url_for('profile.logout') }}">Logout</a></li>
     </ul>
-    <!-- Add Product Form -->
-    <form method="POST" action="{{ url_for('products.add_product') }}">
-        <h2>Add Product</h2>
-        <label>Name:</label>
-        <input type="text" name="name" required>
-        <label>Price:</label>
-        <input type="number" name="price" step="0.01" required>
-        <label>Quantity:</label>
-        <input type="number" name="quantity" required>
-        <label>Category:</label>
-        <input type="text" name="category" required>
-        <button type="submit">Add</button>
-    </form>
+</header>
+
+<h1>Manage Your Products</h1>
+
+<!-- Display Products -->
+<div class="products-container">
+    {% for product in products %}
+    <div class="product-box">
+        <img src="{{ product.image_url }}" alt="{{ product.name }}" class="product-image">
+        <h2>{{ product.name }}</h2>
+        <p>Price: ${{ product.price }}</p>
+        <p>Stock: {{ product.quantity }}</p>
+        <p>Category: {{ product.category }}</p>
+
+        <!-- Edit Product Form -->
+        <form method="POST" action="{{ url_for('products.update_product', product_id=product.id) }}" enctype="multipart/form-data">
+            <label for="name-{{ product.id }}">Name:</label>
+            <input type="text" id="name-{{ product.id }}" name="name" value="{{ product.name }}" required>
+
+            <label for="price-{{ product.id }}">Price:</label>
+            <input type="number" id="price-{{ product.id }}" name="price" step="0.01" value="{{ product.price }}" required>
+
+            <label for="quantity-{{ product.id }}">Quantity:</label>
+            <input type="number" id="quantity-{{ product.id }}" name="quantity" value="{{ product.quantity }}" required>
+
+            <label for="category-{{ product.id }}">Category:</label>
+            <select id="category-{{ product.id }}" name="category" required>
+                <option value="Vegetables" {% if product.category == "Vegetables" %}selected{% endif %}>Vegetables</option>
+                <option value="Fruits" {% if product.category == "Fruits" %}selected{% endif %}>Fruits</option>
+                <option value="Animals" {% if product.category == "Animals" %}selected{% endif %}>Animals</option>
+                <option value="Grains" {% if product.category == "Grains" %}selected{% endif %}>Grains</option>
+                <option value="Dairy" {% if product.category == "Dairy" %}selected{% endif %}>Dairy</option>
+            </select>
+
+            <label for="image-{{ product.id }}">Image:</label>
+            <input type="file" id="image-{{ product.id }}" name="image" accept="image/*">
+
+            <button type="submit">Update</button>
+        </form>
+
+        <!-- Delete Product Form -->
+        <form method="POST" action="{{ url_for('products.delete_product', product_id=product.id) }}">
+            <button type="submit">Delete</button>
+        </form>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Add New Product Form -->
+<form method="POST" action="{{ url_for('products.add_product') }}" enctype="multipart/form-data">
+    <h2>Add New Product</h2>
+    <label for="add-name">Name:</label>
+    <input type="text" id="add-name" name="name" required>
+
+    <label for="add-price">Price:</label>
+    <input type="number" id="add-price" name="price" step="0.01" required>
+
+    <label for="add-quantity">Quantity:</label>
+    <input type="number" id="add-quantity" name="quantity" required>
+
+    <label for="add-category">Category:</label>
+    <select id="add-category" name="category" required>
+        <option value="Vegetables">Vegetables</option>
+        <option value="Fruits">Fruits</option>
+        <option value="Animals">Animals</option>
+        <option value="Grains">Grains</option>
+        <option value="Dairy">Dairy</option>
+    </select>
+
+    <label for="add-image">Image:</label>
+    <input type="file" id="add-image" name="image" accept="image/*" required>
+
+    <button type="submit">Add Product</button>
+</form>
 </body>
 </html>

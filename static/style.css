@@ -102,3 +102,60 @@ button:hover {
 .product-box button:hover {
     background-color: #0056b3;
 }
+
+/* Product Image Styling */
+.product-image {
+    max-width: 100%; /* Ensure the image doesn’t overflow its container */
+    max-height: 200px; /* Limit the vertical size */
+    object-fit: cover; /* Crop the image to fit within the dimensions */
+    display: block; /* Ensure it doesn’t inline with other elements */
+    margin: 0 auto; /* Center the image horizontally */
+    border-radius: 5px; /* Optional: Add rounded corners for better aesthetics */
+}
+
+.tree-box {
+    border: 2px solid black;
+    padding: 10px;
+    margin: 10px;
+    border-radius: 5px;
+}
+
+.tree-box.normal-tree {
+    border-color: gray;
+}
+
+.tree-box.ready-tree {
+    border-color: green;
+    background-color: #eaffea;
+}
+
+.tree-box.dead-tree {
+    border-color: red;
+    background-color: #ffeaea;
+}
+
+.delete-button {
+    background-color: red;
+    color: white;
+    border: none;
+    padding: 5px 10px;
+    cursor: pointer;
+}
+
+.delete-button:hover {
+    background-color: darkred;
+}
+
+.claim-button {
+    background-color: green;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    font-size: 16px;
+    cursor: pointer;
+    border-radius: 5px;
+}
+
+.claim-button:hover {
+    background-color: darkgreen;
+}

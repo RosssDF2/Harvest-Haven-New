@@ -5,31 +5,44 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-    <!-- Navigation Bar -->
     <header>
         <ul>
             {% for option in nav_options %}
             <li><a href="{{ option.url }}">{{ option.name }}</a></li>
             {% endfor %}
-            <!-- Logout Link -->
             <li><a href="{{ url_for('profile.logout') }}">Logout</a></li>
         </ul>
     </header>
 
     <h1>Manage Discounted Products</h1>
-    <ul>
+    <div class="products-container">
         {% for product in items %}
-        <li>
-            {{ product.name }} - ${{ product.price }} ({{ product.stock }} in stock)
-            <form method="POST" action="{{ url_for('discounted.update_discounted', item_id=product.id) }}">
-                <button type="submit">Edit</button>
-            </form>
+        <div class="product-box">
+            <h2>{{ product.name }}</h2>
+            <p>Price: ${{ product.price }}</p>
+            <p>Stock: {{ product.stock }}</p>
+
+            <!-- Edit Product Form -->
+           <form method="POST" action="{{ url_for('discounted.update_discounted', item_id=product.id) }}">
+    <label for="price">Price:</label>
+    <input type="number" id="price" name="price" step="0.01" value="{{ product.price }}" required>
+
+    <label for="stock">Stock:</label>
+    <input type="number" id="stock" name="stock" value="{{ product.stock }}" required>
+
+    <button type="submit">Update</button>
+</form>
+
+
+            <!-- Delete Product Form -->
             <form method="POST" action="{{ url_for('discounted.delete_discounted', item_id=product.id) }}">
                 <button type="submit">Delete</button>
             </form>
-        </li>
+        </div>
         {% endfor %}
-    </ul>
+    </div>
+
+    <!-- Add Product Form -->
     <form method="POST" action="{{ url_for('discounted.add_discounted') }}">
         <h2>Add Discounted Product</h2>
         <label>Name:</label>

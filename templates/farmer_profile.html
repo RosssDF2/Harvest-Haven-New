@@ -5,26 +5,31 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-    <!-- Navigation Bar -->
-    <header>
-        <ul>
-            {% for option in nav_options %}
-            <li><a href="{{ option.url }}">{{ option.name }}</a></li>
-            {% endfor %}
-            <!-- Logout Link -->
-            <li><a href="{{ url_for('profile.logout') }}">Logout</a></li>
-        </ul>
-    </header>
-
-    <h1>Welcome, {{ user.name }}</h1>
-    <p>Total Earnings: ${{ user_balance }}</p>
-    <p>Points Earned: {{ user_points }}</p>
-
-    <h2>Products You Manage</h2>
+<header>
     <ul>
-        {% for product in user.products %}
-        <li>{{ product.name }} - ${{ product.price }} ({{ product.quantity }} in stock)</li>
+        {% for option in nav_options %}
+        <li><a href="{{ option.url }}">{{ option.name }}</a></li>
         {% endfor %}
+        <li><a href="{{ url_for('profile.logout') }}">Logout</a></li>
     </ul>
+</header>
+
+<h1>Welcome, {{ user.name }}</h1>
+<p>Role: {{ user.role }}</p>
+
+<h2>Add Points to Customer</h2>
+<form method="POST" action="{{ url_for('profile.add_points') }}">
+    <label for="username">Customer Username:</label>
+    <input type="text" id="username" name="username" placeholder="Enter username" required>
+
+    <label for="points">Points to Add:</label>
+    <input type="number" id="points" name="points" min="1" required>
+
+    <button type="submit">Add Points</button>
+</form>
+
+<h2>Other Farmer Features</h2>
+<!-- Additional farmer-specific profile content goes here -->
+
 </body>
 </html>

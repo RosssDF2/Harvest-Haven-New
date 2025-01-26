@@ -115,7 +115,12 @@ def farmer_purchases():
     """Allow farmers to view customer purchases."""
     if session.get('role') != 'farmer':
         flash("Access denied! Only farmers can view this page.", "error")
-        return redirect(url_for('profile.home'))
+        return redirect(url_for('profile.profile'))
 
-    purchases = db_manager.get_ownership(session.get('user_id')).get("products", [])
-    return render_template("farmer_checkout.html", purchases=purchases)
+    purchases = db_manager.get_transactions("customer1")  # Placeholder logic
+    nav_options = db_manager.get_nav_options(session.get('role'))  # Ensure nav_options is included
+    return render_template(
+        "farmer_checkout.html",
+        purchases=purchases,
+        nav_options=nav_options  # Pass nav_options to the template
+    )

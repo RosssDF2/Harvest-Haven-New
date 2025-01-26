@@ -5,28 +5,47 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-    <!-- Navigation Bar -->
-    <header>
-        <ul>
-            {% for option in nav_options %}
-            <li><a href="{{ option.url }}">{{ option.name }}</a></li>
-            {% endfor %}
-            <li><a href="{{ url_for('profile.logout') }}">Logout</a></li>
-        </ul>
-    </header>
-
-    <h1>Products</h1>
-    <div class="products-container">
-        {% for product in products %}
-        <div class="product-box">
-            <h2>{{ product.name }}</h2>
-            <p>Price: ${{ product.price }}</p>
-            <p>Quantity: {{ product.quantity }}</p>
-            <form action="{{ url_for('products.add_to_cart', product_id=product.id) }}" method="POST">
-                <button type="submit">Add to Cart</button>
-            </form>
-        </div>
+<header>
+    <ul>
+        {% for option in nav_options %}
+        <li><a href="{{ option.url }}">{{ option.name }}</a></li>
         {% endfor %}
+        <li><a href="{{ url_for('profile.logout') }}">Logout</a></li>
+    </ul>
+</header>
+
+<h1>Available Products</h1>
+
+<!-- Filter by category -->
+<form method="GET" action="{{ url_for('products.home') }}">
+    <label for="filter-category">Filter by Category:</label>
+    <select id="filter-category" name="category">
+        <option value="" {% if not selected_category %}selected{% endif %}>All Categories</option>
+        <option value="Vegetables" {% if selected_category == "Vegetables" %}selected{% endif %}>Vegetables</option>
+        <option value="Fruits" {% if selected_category == "Fruits" %}selected{% endif %}>Fruits</option>
+        <option value="Animals" {% if selected_category == "Animals" %}selected{% endif %}>Animals</option>
+        <option value="Grains" {% if selected_category == "Grains" %}selected{% endif %}>Grains</option>
+        <option value="Dairy" {% if selected_category == "Dairy" %}selected{% endif %}>Dairy</option>
+    </select>
+    <button type="submit">Filter</button>
+</form>
+
+<!-- Display products -->
+<div class="products-container">
+    {% for product in products %}
+    <div class="product-box">
+        <img src="{{ product.image_url }}" alt="{{ product.name }}" class="product-image">
+        <h2>{{ product.name }}</h2>
+        <p>Price: ${{ product.price }}</p>
+        <p>Stock: {{ product.quantity }}</p>
+        <p>Uploaded By: {{ product.uploaded_by }}</p>
+        <form method="POST" action="{{ url_for('products.add_to_cart', product_id=product.id) }}">
+            <label for="quantity-{{ product.id }}">Quantity:</label>
+            <input type="number" id="quantity-{{ product.id }}" name="quantity" min="1" max="{{ product.quantity }}" required>
+            <button type="submit">Add to Cart</button>
+        </form>
     </div>
+    {% endfor %}
+</div>
 </body>
 </html>

@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Plant a Future</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script>
+    function fetchUpdatedTrees() {
+    fetch('/rewards/get_trees')
+        .then(response => response.json())
+        .then(data => {
+            if (data.trees) {
+                data.trees.forEach(tree => {
+                    const countdownElement = document.getElementById(`countdown-${tree.id}`);
+                    const nextPhaseButton = document.getElementById(`next-phase-${tree.id}`);
+                    const waterButton = document.getElementById(`water-${tree.id}`);
+                    const fertilizeButton = document.getElementById(`fertilize-${tree.id}`);
+                    const deleteButton = document.getElementById(`delete-${tree.id}`);
+
+                    if (tree.health === 0) {
+                        // Plant is dead
+                        countdownElement.textContent = "Your plant died, your points and balance will not be refunded.";
+                        waterButton.style.display = "none";
+                        fertilizeButton.style.display = "none";
+                        nextPhaseButton.style.display = "none";
+                        deleteButton.style.display = "inline-block";
+                    } else if (tree.time_remaining > 0) {
+                        // Timer is running
+                        countdownElement.textContent = `Time Remaining: ${Math.round(tree.time_remaining)}s`;
+                        nextPhaseButton.disabled = true; // Disable Next Phase while timer is running
+                        nextPhaseButton.style.backgroundColor = ""; // Reset button color
+                        nextPhaseButton.style.color = "";
+                    } else if (tree.next_phase_enabled) {
+                        // Timer is 0 and criteria are met
+                        countdownElement.textContent = "Congrats, your plant can proceed to the next phase!";
+                        nextPhaseButton.disabled = false; // Enable Next Phase button
+                        nextPhaseButton.style.backgroundColor = "green";
+                        nextPhaseButton.style.color = "white";
+                    } else {
+                        // Timer is 0 but criteria are not met
+                        countdownElement.textContent = "Your plant died, your points and balance will not be refunded.";
+                        waterButton.style.display = "none";
+                        fertilizeButton.style.display = "none";
+                        nextPhaseButton.style.display = "none";
+                        deleteButton.style.display = "inline-block";
+                    }
+                });
+            }
+        })
+        .catch(error => console.error('Error fetching tree data:', error));
+}
+
+// Fetch updated data every second
+setInterval(fetchUpdatedTrees, 1000);
+
+
+</script>
+
+
+
+
+
+</head>
+<body>
+<header>
+    <ul>
+        {% for option in nav_options %}
+        <li><a href="{{ option.url }}">{{ option.name }}</a></li>
+        {% endfor %}
+        <li><a href="{{ url_for('profile.logout') }}">Logout</a></li>
+    </ul>
+    <div class="user-info">
+        <p>Balance: ${{ user_balance }}</p>
+        <p>Points: {{ user_points }}</p>
+    </div>
+</header>
+
+<h1>Plant a Future</h1>
+
+<!-- Display tree options and costs -->
+<div class="tree-options">
+    <h2>Plant a New Tree</h2>
+    <form method="POST" action="{{ url_for('rewards.plant_tree') }}">
+        <label for="tree-type">Select Tree Type:</label>
+<select name="tree_type" id="tree-type" required>
+    {% for tree_type, details in tree_types.items() %}
+    <option value="{{ tree_type }}">
+        {{ details.name }} - Cost: ${{ details.price }} / {{ details.price * points_conversion_rate }} points
+        - Expected Investment: ${{ details.investment_return }}
+    </option>
+    {% endfor %}
+</select>
+
+        <label for="payment-method">Payment Method:</label>
+        <select name="payment_method" id="payment-method" required>
+            <option value="balance">Balance</option>
+            <option value="points">Points</option>
+        </select>
+        <button type="submit">Plant</button>
+    </form>
+</div>
+
+<!-- Display trees only when the user has planted at least one -->
+{% for tree_id, tree in trees.items() %}
+<div class="tree-box {% if tree.health == 0 %}dead-tree{% elif tree.watered and tree.fertilized %}ready-tree{% else %}normal-tree{% endif %}">
+    <h3>{{ tree.type }} - {{ tree.phase }}</h3>
+    <p>Health: {{ tree.health }}</p>
+    <p>Watered: {{ 'Yes' if tree.watered else 'No' }}</p>
+    <p>Fertilized: {{ 'Yes' if tree.fertilized else 'No' }}</p>
+    <p>Next Phase Time: {{ tree.next_phase_time }}</p>
+    <div id="countdown-{{ tree_id }}">Time Remaining: {{ tree.time_remaining }}s</div>
+
+    <!-- Water button -->
+    <form method="POST" action="{{ url_for('rewards.water_tree', tree_id=tree_id) }}">
+        <button id="water-{{ tree_id }}" type="submit"
+            {% if tree.watered or tree.health == 0 %}disabled{% endif %}>Water</button>
+    </form>
+
+    <!-- Fertilize button -->
+    <form method="POST" action="{{ url_for('rewards.fertilize_tree', tree_id=tree_id) }}">
+        <button id="fertilize-{{ tree_id }}" type="submit"
+            {% if tree.fertilized or tree.health == 0 %}disabled{% endif %}>Fertilize</button>
+    </form>
+
+    <!-- Claim button for Mature Tree -->
+    {% if tree.phase == "Mature Tree" %}
+    <form method="POST" action="{{ url_for('rewards.next_phase', tree_id=tree_id) }}">
+        <button id="claim-button-{{ tree_id }}" type="submit"
+            {% if not (tree.watered and tree.fertilized) %}disabled{% endif %}>Claim Rewards</button>
+    </form>
+    {% else %}
+    <!-- Next phase button for other phases -->
+    <form method="POST" action="{{ url_for('rewards.next_phase', tree_id=tree_id) }}">
+        <button id="next-phase-{{ tree_id }}" type="submit"
+            {% if not (tree.watered and tree.fertilized and tree.time_remaining == 0) or tree.health == 0 %}disabled{% endif %}>
+            Next Phase
+        </button>
+    </form>
+    {% endif %}
+
+    <!-- Delete button -->
+    <form method="POST" action="{{ url_for('rewards.delete_tree', tree_id=tree_id) }}">
+        <button id="delete-{{ tree_id }}" type="submit" class="delete-button">Delete Tree</button>
+    </form>
+</div>
+<script>
+    startCountdown(
+        {{ tree_id }},
+        {{ tree.time_remaining }},
+        {{ tree.health == 0 | lower }},
+        {{ tree.watered and tree.fertilized | lower }}
+    );
+</script>
+{% endfor %}
+
+
+
+
+</body>
+</html>
