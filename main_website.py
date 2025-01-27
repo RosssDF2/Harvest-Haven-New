@@ -7,10 +7,12 @@ from Reward_Section import reward_bp
 from Return_Section import return_bp
 from database import EnhancedDatabaseManager
 
+
 import os
 
 app = Flask(__name__)
 app.secret_key = "master_secret_key"
+
 
 # Configure file uploads
 UPLOAD_FOLDER = os.path.join(os.getcwd(), 'static', 'uploads')  # Save images in static/uploads

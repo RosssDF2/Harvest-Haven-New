@@ -31,6 +31,14 @@ class EnhancedDatabaseManager:
                         "balance": 500.0,
                         "password": "farmer123",
                     },
+                    "farmer2": {
+                        "name": "Farmer 2",
+                        "email": "farmer2@example.com",
+                        "role": "farmer",
+                        "points": 150,
+                        "balance": 300.0,
+                        "password": "farmer123",
+                    },
                 }
 
             # Default products
@@ -54,12 +62,22 @@ class EnhancedDatabaseManager:
                     },
                 }
 
-            # Default ownership
-            if "ownership" not in db:
-                db["ownership"] = {
-                    "farmer1": {"products": [1, 2, 3], "returns": {}, "plants": []},
-                    "customer1": {"products": [], "returns": {}, "plants": []},
-                }
+                # Default ownership
+                if "ownership" not in db:
+                    db["ownership"] = {
+                        "farmer1": {
+                            "products": [1, 2, 3],
+                            "returns": {},
+                            "plants": [],
+                            "watering_price": 5.0,  # Default watering price
+                            "fertilizer_price": 10.0,  # Default fertilizer price
+                        },
+                        "customer1": {
+                            "products": [],
+                            "returns": {},
+                            "plants": [],
+                        },
+                    }
 
             # Default rewards
             if "reward_products" not in db:
@@ -99,6 +117,36 @@ class EnhancedDatabaseManager:
         with shelve.open(self.db_name) as db:
             return db.get("users", {})
 
+    def get_farmer_notifications(self, farmer_id):
+        """
+        Fetch pending return requests for the specified farmer.
+        :param farmer_id: ID of the farmer
+        :return: List of return requests relevant to the farmer
+        """
+        with shelve.open(self.db_name) as db:
+            # Get all return transactions
+            return_transactions = db.get("return_transactions", {})
+            products = db.get("products", {})
+            farmer_returns = []
+
+            # Loop through all return transactions
+            for customer_id, transactions in return_transactions.items():
+                for transaction in transactions:
+                    # Find the product associated with the return
+                    product_name = transaction.get("product_name")
+                    for product_id, product_data in products.items():
+                        # Check if the product belongs to the farmer
+                        if product_data["name"] == product_name and product_data["uploaded_by"] == farmer_id:
+                            farmer_returns.append({
+                                "id": transaction.get("id"),  # Unique ID for the return (if available)
+                                "product_name": product_name,
+                                "quantity": transaction.get("quantity", 1),  # Default to 1 if not specified
+                                "reason": transaction.get("reason"),
+                                "customer_id": customer_id,
+                            })
+
+            return farmer_returns
+
     def get_products(self):
         """Retrieve all products."""
         with shelve.open(self.db_name) as db:
@@ -125,8 +173,8 @@ class EnhancedDatabaseManager:
                 {"name": "Profile", "url": "/profile/profile"},  # Ensure this is included
                 {"name": "Products", "url": "/products/"},
                 {"name": "Discounted Products", "url": "/discounted/"},
+                {"name": "Your Farm", "url": "/rewards/farmer_plant_a_future"},  # Added "Your Farm"
                 {"name": "Returns", "url": "/returns/farmer_returns"},
-                {"name": "Checkout", "url": "/checkout/farmer_purchases"},
             ],
             "customer": [
                 {"name": "Profile", "url": "/profile/profile"},
@@ -261,6 +309,32 @@ class EnhancedDatabaseManager:
             return_transactions = db.get("return_transactions", {})
             return return_transactions.get(user_id, [])
 
+    def create_profile(self, username, name, email, role, points, password):
+        """
+        Create a new user profile and save it to the database.
+
+        :param username: Unique username for the user
+        :param name: Full name of the user
+        :param email: Email address of the user
+        :param role: Role of the user (customer or farmer)
+        :param points: Initial points for the user
+        :param password: Password for the user
+        """
+        with shelve.open(self.db_name, writeback=True) as db:
+            users = db.get("users", {})
+            if username in users:
+                raise ValueError(f"Username '{username}' already exists.")
+
+            users[username] = {
+                "name": name,
+                "email": email,
+                "role": role,
+                "points": points,
+                "balance": 0.0,  # Default balance for new accounts
+                "password": password,
+            }
+            db["users"] = users
+
     def save_ownership(self, user_id, ownership):
         """
         Save updated ownership details for a user.
@@ -272,6 +346,32 @@ class EnhancedDatabaseManager:
             all_ownership = db.get("ownership", {})
             all_ownership[user_id] = ownership
             db["ownership"] = all_ownership
+
+    def get_farmer_notifications(self, farmer_id):
+        """Fetch pending return requests for the specified farmer."""
+        with shelve.open(self.db_name) as db:
+            return_transactions = db.get("return_transactions", {})
+            products = db.get("products", {})
+            farmer_returns = []
+
+            for customer_id, transactions in return_transactions.items():
+                for transaction in transactions:
+                    product_name = transaction.get("product_name")
+                    for product_id, product_data in products.items():
+                        if (
+                                product_data["name"] == product_name
+                                and product_data["uploaded_by"] == farmer_id
+                                and transaction.get("status") == "pending"
+                        ):
+                            farmer_returns.append({
+                                "id": product_id,
+                                "product_name": product_name,
+                                "quantity": transaction.get("quantity", 1),
+                                "reason": transaction.get("reason"),
+                                "customer_id": customer_id,
+                            })
+
+            return farmer_returns
 
     def add_return_transaction(self, user_id, product_name, reason):
         """
@@ -287,6 +387,8 @@ class EnhancedDatabaseManager:
             user_returns.append({
                 "product_name": product_name,
                 "reason": reason,
+                "status": "pending",  # Default status
+                "instructions": None,  # Default instructions
                 "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             })
             print("Return Transactions for User:", return_transactions.get(user_id, []))
@@ -296,6 +398,9 @@ def save_users(self, users):
     """Save the updated users dictionary."""
     with shelve.open(self.db_name, writeback=True) as db:
         db["users"] = users
+
+
+
 
 
 def adjust_user_points(self, user_id, points_delta):
@@ -321,6 +426,15 @@ def adjust_user_points(self, user_id, points_delta):
         user["points"] = new_points
         users[user_id] = user
         db["users"] = users
+
+
+
+
+
+
+
+
+
 
 
 

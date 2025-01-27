@@ -1,51 +1,96 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Customer Products</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
-<body>
-<header>
-    <ul>
-        {% for option in nav_options %}
-        <li><a href="{{ option.url }}">{{ option.name }}</a></li>
-        {% endfor %}
-        <li><a href="{{ url_for('profile.logout') }}">Logout</a></li>
-    </ul>
+<body class="bg-light">
+<!-- Header Section -->
+<header class="bg-success text-white py-3 mb-4">
+    <div class="container d-flex justify-content-between align-items-center">
+        <!-- Logo -->
+        <div class="d-flex align-items-center me-3">
+            <img src="{{ url_for('static', filename='uploads/Harvest Haven.png') }}" alt="Harvest Haven Logo" style="width: 80px; height: auto;">
+        </div>
+
+        <!-- Navigation Bar -->
+        <ul class="nav flex-grow-1 justify-content-center">
+            {% for option in nav_options %}
+            <li class="nav-item">
+                <a class="nav-link text-white" href="{{ option.url }}">{{ option.name }}</a>
+            </li>
+            {% endfor %}
+        </ul>
+
+        <!-- Dropdown Button -->
+        <div class="dropdown">
+            <button class="btn btn-light dropdown-toggle" type="button" id="dropdownMenuButton" data-bs-toggle="dropdown" aria-expanded="false">
+                Menu
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="dropdownMenuButton">
+                <li><a class="dropdown-item" href="{{ url_for('profile.profile') }}">Profile</a></li>
+                <li><a class="dropdown-item" href="{{ url_for('rewards.rewards') }}">Rewards</a></li>
+                <li><hr class="dropdown-divider"></li>
+                <li><a class="dropdown-item text-danger" href="{{ url_for('profile.logout') }}">Logout</a></li>
+            </ul>
+        </div>
+    </div>
 </header>
 
-<h1>Available Products</h1>
+<main class="container">
+    <h1 class="text-success mb-4">Available Products</h1>
 
-<!-- Filter by category -->
-<form method="GET" action="{{ url_for('products.home') }}">
-    <label for="filter-category">Filter by Category:</label>
-    <select id="filter-category" name="category">
-        <option value="" {% if not selected_category %}selected{% endif %}>All Categories</option>
-        <option value="Vegetables" {% if selected_category == "Vegetables" %}selected{% endif %}>Vegetables</option>
-        <option value="Fruits" {% if selected_category == "Fruits" %}selected{% endif %}>Fruits</option>
-        <option value="Animals" {% if selected_category == "Animals" %}selected{% endif %}>Animals</option>
-        <option value="Grains" {% if selected_category == "Grains" %}selected{% endif %}>Grains</option>
-        <option value="Dairy" {% if selected_category == "Dairy" %}selected{% endif %}>Dairy</option>
-    </select>
-    <button type="submit">Filter</button>
-</form>
+    <!-- Filter by Category -->
+    <form method="GET" action="{{ url_for('products.home') }}" class="mb-4">
+        <div class="row g-2">
+            <div class="col-md-6">
+                <label for="filter-category" class="form-label">Filter by Category:</label>
+                <select id="filter-category" name="category" class="form-select">
+                    <option value="" {% if not selected_category %}selected{% endif %}>All Categories</option>
+                    <option value="Vegetables" {% if selected_category == "Vegetables" %}selected{% endif %}>Vegetables</option>
+                    <option value="Fruits" {% if selected_category == "Fruits" %}selected{% endif %}>Fruits</option>
+                    <option value="Grains" {% if selected_category == "Grains" %}selected{% endif %}>Grains</option>
+                    <option value="Dairy" {% if selected_category == "Dairy" %}selected{% endif %}>Dairy</option>
+                </select>
+            </div>
+            <div class="col-md-6 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary w-100">Filter</button>
+            </div>
+        </div>
+    </form>
 
-<!-- Display products -->
-<div class="products-container">
+    <!-- Display Products -->
+    <div class="row">
     {% for product in products %}
-    <div class="product-box">
-        <img src="{{ product.image_url }}" alt="{{ product.name }}" class="product-image">
-        <h2>{{ product.name }}</h2>
-        <p>Price: ${{ product.price }}</p>
-        <p>Stock: {{ product.quantity }}</p>
-        <p>Uploaded By: {{ product.uploaded_by }}</p>
-        <form method="POST" action="{{ url_for('products.add_to_cart', product_id=product.id) }}">
-            <label for="quantity-{{ product.id }}">Quantity:</label>
-            <input type="number" id="quantity-{{ product.id }}" name="quantity" min="1" max="{{ product.quantity }}" required>
-            <button type="submit">Add to Cart</button>
-        </form>
+    <div class="col-md-4 mb-4">
+        <div class="card">
+            <img src="{{ product.image_url }}" alt="{{ product.name }}"
+                class="card-img-top img-fluid"
+                style="width: 100%; height: 150px; object-fit: contain; background-color: #f8f9fa; padding: 10px; border-radius: 5px;">
+            <div class="card-body">
+                <h5 class="card-title">{{ product.name }}</h5>
+                <p class="card-text">Price: ${{ product.price }}</p>
+                <p class="card-text">Stock: {{ product.quantity }}</p>
+                <p class="card-text">Uploaded By: {{ product.uploaded_by }}</p>
+                <form method="POST" action="{{ url_for('products.add_to_cart', product_id=product.id) }}">
+                    <label for="quantity-{{ product.id }}" class="form-label">Quantity:</label>
+                    <input type="number" id="quantity-{{ product.id }}" name="quantity" min="1" max="{{ product.quantity }}" required class="form-control mb-2">
+                    <button type="submit" class="btn btn-success w-100">Add to Cart</button>
+                </form>
+            </div>
+        </div>
     </div>
     {% endfor %}
 </div>
+
+
+</main>
+
+<!-- Bootstrap JS -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

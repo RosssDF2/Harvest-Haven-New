@@ -8,7 +8,7 @@ body {
 
 /* Header styling */
 header {
-    background-color: #007BFF;
+    background-color: #28a745; /* Green */
     color: white;
     padding: 10px 20px;
 }
@@ -37,7 +37,7 @@ header ul li a:hover {
 
 /* Content styling */
 h1 {
-    color: #333;
+    color: #2d6a4f; /* Darker green for headings */
 }
 
 ul {
@@ -45,7 +45,7 @@ ul {
 }
 
 button {
-    background-color: #007BFF;
+    background-color: #28a745; /* Green */
     color: white;
     border: none;
     padding: 10px 15px;
@@ -54,7 +54,7 @@ button {
 }
 
 button:hover {
-    background-color: #0056b3;
+    background-color: #218838; /* Darker green on hover */
 }
 
 /* Product section */
@@ -79,6 +79,7 @@ button:hover {
 .product-box h2 {
     margin-bottom: 10px;
     font-size: 18px;
+    color: #2d6a4f; /* Dark green for headings */
 }
 
 .product-box p {
@@ -90,7 +91,7 @@ button:hover {
 }
 
 .product-box button {
-    background-color: #007BFF;
+    background-color: #28a745; /* Green */
     color: white;
     border: none;
     padding: 10px 15px;
@@ -100,7 +101,7 @@ button:hover {
 }
 
 .product-box button:hover {
-    background-color: #0056b3;
+    background-color: #218838; /* Darker green on hover */
 }
 
 /* Product Image Styling */
@@ -113,26 +114,8 @@ button:hover {
     border-radius: 5px; /* Optional: Add rounded corners for better aesthetics */
 }
 
-.tree-box {
-    border: 2px solid black;
-    padding: 10px;
-    margin: 10px;
-    border-radius: 5px;
-}
 
-.tree-box.normal-tree {
-    border-color: gray;
-}
 
-.tree-box.ready-tree {
-    border-color: green;
-    background-color: #eaffea;
-}
-
-.tree-box.dead-tree {
-    border-color: red;
-    background-color: #ffeaea;
-}
 
 .delete-button {
     background-color: red;
@@ -147,7 +130,7 @@ button:hover {
 }
 
 .claim-button {
-    background-color: green;
+    background-color: #28a745; /* Green for claim button */
     color: white;
     border: none;
     padding: 10px 20px;
@@ -157,5 +140,33 @@ button:hover {
 }
 
 .claim-button:hover {
-    background-color: darkgreen;
+    background-color: #218838; /* Darker green on hover */
 }
+
+/* General Tree Box Styling */
+.tree-box {
+    border: 1px solid #ddd; /* Default border */
+    padding: 15px;
+    margin: 10px 0;
+    border-radius: 5px;
+    background-color: white; /* Default background */
+    transition: background-color 0.3s ease; /* Smooth transition for color changes */
+}
+
+/* Ready Tree (Watered and Fertilized) */
+.tree-box.ready-tree {
+    background-color: #eaffea; /* Light green */
+}
+
+/* Dead Tree (Phase: Dead) */
+.tree-box.dead-tree {
+    background-color: #ffeaea; /* Light red */
+    border: 1px solid #f5c2c7; /* Optional: Red border to enhance visibility */
+}
+
+
+/* Normal Tree */
+.tree-box.normal-tree {
+    background-color: white; /* Default white background */
+}
+

@@ -6,7 +6,7 @@ from database import EnhancedDatabaseManager
 product_bp = Blueprint('products', __name__)
 db_manager = EnhancedDatabaseManager()
 
-# File upload configuration
+# config for file upload
 UPLOAD_FOLDER = 'static/uploads'
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
 
@@ -24,28 +24,28 @@ def home():
     user_role = session.get('role')
     nav_options = db_manager.get_nav_options(user_role)
 
-    # Retrieve products from the database
+    # retrieve products from db
     products = db_manager.get_products()
     users = db_manager.get_users()  # Retrieve user data for product uploader
 
-    # Get selected category from query parameters
+    # to get selected categ from query para
     selected_category = request.args.get('category')
 
     if selected_category:
-        # Filter products by category
+        # to filter products by category
         products = {
             pid: pdata
             for pid, pdata in products.items()
             if pdata['category'] == selected_category
         }
 
-    # Prepare products with IDs and uploader names
+    # to have products with IDs and uploader names
     products_with_ids = [
         {"id": product_id, **product_data}
         for product_id, product_data in products.items()
     ]
 
-    # Render appropriate template based on user role
+    # profile login (cust, farmer separate)
     if user_role == 'customer':
         return render_template(
             "customer_products.html",
@@ -63,7 +63,7 @@ def home():
         flash("Unauthorized access.", "error")
         return redirect(url_for('profile.login'))
 
-
+#FARMER SIDE
 @product_bp.route('/add_product', methods=['POST'])
 def add_product():
     """Allow farmers to add new products with an image."""
@@ -71,14 +71,14 @@ def add_product():
         flash("Access denied! Only farmers can add products.", "error")
         return redirect(url_for('products.home'))
 
-    # Retrieve form data
+    # to get form data
     name = request.form.get('name')
     price = request.form.get('price')
     quantity = request.form.get('quantity')
     category = request.form.get('category')
-    image = request.files.get('image')  # Get the uploaded image file
+    image = request.files.get('image')  # to get uploaded image file
 
-    # Validate inputs
+    # validate inputs
     if not name or not price or not quantity or not category or not image:
         flash("All fields, including an image, are required.", "error")
         return redirect(url_for('products.home'))
@@ -88,15 +88,15 @@ def add_product():
         return redirect(url_for('products.home'))
 
     try:
-        # Save the image
+        # to save images
         filename = secure_filename(image.filename)
         image.save(os.path.join(UPLOAD_FOLDER, filename))
 
-        # Convert price and quantity to appropriate types
+        #
         price = float(price)
         quantity = int(quantity)
 
-        # Add the product to the database
+        # to add product to db
         products = db_manager.get_products()
         product_id = max(products.keys(), default=0) + 1
         products[product_id] = {
@@ -122,7 +122,7 @@ def update_product(product_id):
         flash("Access denied! Only farmers can update products.", "error")
         return redirect(url_for('products.home'))
 
-    # Retrieve the product from the database
+    # get product from db
     products = db_manager.get_products()
     product = products.get(product_id)
 
@@ -130,29 +130,29 @@ def update_product(product_id):
         flash("Product not found.", "error")
         return redirect(url_for('products.home'))
 
-    # Retrieve form data
+    # to retrieve form data
     name = request.form.get('name')
     price = request.form.get('price')
     quantity = request.form.get('quantity')
     category = request.form.get('category')
-    image = request.files.get('image')  # Optional uploaded image
+    image = request.files.get('image')
 
     if not name or not price or not quantity or not category:
         flash("All fields (except image) are required.", "error")
         return redirect(url_for('products.home'))
 
     try:
-        # Update product details
+        # update of product details
         product['name'] = name
         product['price'] = float(price)
         product['quantity'] = int(quantity)
         product['category'] = category
 
-        # If a new image is uploaded, save it
+        # to save if new image updated
         if image and allowed_file(image.filename):
             filename = secure_filename(image.filename)
             image.save(os.path.join(UPLOAD_FOLDER, filename))
-            product['image_url'] = f"/static/uploads/{filename}"  # Update image URL
+            product['image_url'] = f"/static/uploads/{filename}"
 
         products[product_id] = product
         db_manager.save_products(products)
@@ -181,7 +181,7 @@ def delete_product(product_id):
 
     return redirect(url_for('products.home'))
 
-
+#CUSTOMER SIDE
 @product_bp.route('/add_to_cart/<int:product_id>', methods=['POST'])
 def add_to_cart(product_id):
     """Add a product to the customer's cart."""
@@ -196,7 +196,7 @@ def add_to_cart(product_id):
         flash("Product not found.", "error")
         return redirect(url_for('products.home'))
 
-    # Retrieve quantity and validate
+
     try:
         quantity = int(request.form.get('quantity'))
         if quantity <= 0 or quantity > product['quantity']:
@@ -206,7 +206,7 @@ def add_to_cart(product_id):
         flash("Invalid quantity input.", "error")
         return redirect(url_for('products.home'))
 
-    # Add the product to the customer's cart in the session
+    # Add product to the cust's cart in the session
     cart = session.get('cart', [])
     cart.append({"id": product_id, "name": product['name'], "price": product['price'], "quantity": quantity})
     session['cart'] = cart

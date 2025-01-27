@@ -120,15 +120,29 @@ def plant_a_future():
         flash("Unauthorized access.", "error")
         return redirect(url_for('profile.login'))
 
-    # Fetch tree and ownership data
     with shelve.open(db_manager.db_name, writeback=True) as db:
         ownership = db.get("ownership", {}).get(user_id, {})
         plants = ownership.get("plants", [])
+        farmers = {k: v for k, v in db["users"].items() if v["role"] == "farmer"}  # Filter farmers
 
-        # Ensure `trees` is a valid dictionary
-        trees = {tree["id"]: tree for tree in plants if "id" in tree and "type" in tree}
+        # Check for dead trees and notify the customer
+        for tree in plants:
+            if tree["phase"] == "Dead" and not tree.get("notified", False):
+                farmer_id = tree.get("farmer_id")
+                farmer_name = farmers.get(farmer_id, {}).get("name", "Unknown Farmer")
+                flash(f"Your tree '{tree['type']}' was marked as dead by {farmer_name}. "
+                      f"Reason: {tree.get('kill_reason', 'No reason provided')}", "info")
+                tree["notified"] = True  # Mark as notified
 
-        tree_types = db.get("tree_types", {})  # Fetch tree types from the database
+        # Calculate remaining time for each tree
+        current_time = datetime.now()
+        for tree in plants:
+            planted_time = datetime.strptime(tree["planted_on"], "%Y-%m-%d %H:%M:%S")
+            elapsed_time = (current_time - planted_time).total_seconds()
+            tree["time_remaining"] = max(30 - int(elapsed_time), 0)
+
+        trees = {tree["id"]: tree for tree in plants}
+        tree_types = db.get("tree_types", {})
 
     nav_options = db_manager.get_nav_options(session.get('role'))
     user_balance = db_manager.get_users().get(user_id, {}).get("balance", 0)
@@ -139,10 +153,12 @@ def plant_a_future():
         nav_options=nav_options,
         trees=trees,
         tree_types=tree_types,
+        farmers=farmers,  # Pass farmers to the template
         user_balance=user_balance,
         user_points=user_points,
         points_conversion_rate=POINTS_CONVERSION_RATE,
     )
+
 
 
 
@@ -218,13 +234,24 @@ def next_phase(tree_id):
                 user["balance"] += investment_return * 2
                 flash(f"Congratulations! You claimed ${investment_return * 2:.2f} for your mature tree.", "success")
 
-                # Remove the tree after claiming
+                # Remove the tree after claiming from both customer and farmer
                 trees.remove(tree)
+
+                # Remove the tree from the farmer's ownership
+                farmer_id = tree.get("farmer_id")
+                if farmer_id:
+                    farmer_ownership = ownership.get(farmer_id, {})
+                    farmer_trees = farmer_ownership.get("plants", [])
+                    farmer_tree = next((t for t in farmer_trees if t["id"] == tree_id), None)
+                    if farmer_tree:
+                        farmer_trees.remove(farmer_tree)
+                        ownership[farmer_id] = farmer_ownership
 
                 # Save changes
                 user_ownership["plants"] = trees
                 db["users"] = users
                 db["ownership"][user_id] = user_ownership
+                db["ownership"] = ownership
             else:
                 flash("Tree type information not found. Unable to process claim.", "error")
 
@@ -251,6 +278,7 @@ def next_phase(tree_id):
 
 
 
+
 @reward_bp.route('/plant_tree', methods=['POST'])
 def plant_tree():
     """Allow customers to plant a new tree."""
@@ -258,16 +286,18 @@ def plant_tree():
         flash("Access denied! Only customers can plant trees.", "error")
         return redirect(url_for('rewards.plant_a_future'))
 
-    user_id = session.get('user_id')
+    user_id = session.get('user_id')  # Customer ID
     if not user_id:
         flash("Unauthorized access.", "error")
         return redirect(url_for('profile.login'))
 
+    # Retrieve form data
+    farmer_id = request.form.get('farmer_id')  # Farmer ID
     tree_type = request.form.get('tree_type')
     payment_method = request.form.get('payment_method')
 
-    if not tree_type or not payment_method:
-        flash("Please select a tree type and payment method.", "error")
+    if not farmer_id or not tree_type or not payment_method:
+        flash("Please select a farmer, tree type, and payment method.", "error")
         return redirect(url_for('rewards.plant_a_future'))
 
     with shelve.open(db_manager.db_name, writeback=True) as db:
@@ -297,8 +327,9 @@ def plant_tree():
             user["points"] -= tree_cost * POINTS_CONVERSION_RATE
 
         # Add the tree to ownership
-        user_trees = ownership.setdefault(user_id, {}).setdefault("plants", [])
-        new_tree_id = len(user_trees) + 1
+        customer_trees = ownership.setdefault(user_id, {}).setdefault("plants", [])
+        farmer_trees = ownership.setdefault(farmer_id, {}).setdefault("plants", [])
+        new_tree_id = len(customer_trees) + 1
         new_tree = {
             "id": new_tree_id,
             "type": tree_info["name"],
@@ -308,15 +339,20 @@ def plant_tree():
             "watered": False,
             "fertilized": False,
             "time_remaining": 30,
+            "customer_id": user_id,  # Link to customer
+            "farmer_id": farmer_id,  # Link to farmer
         }
-        user_trees.append(new_tree)
+        customer_trees.append(new_tree)
+        farmer_trees.append(new_tree)
 
         # Save changes
         db["users"] = users
         db["ownership"] = ownership
 
-    flash(f"Successfully planted a {tree_info['name']}!", "success")
+    flash(f"Successfully planted a {tree_info['name']} with Farmer {farmer_id}!", "success")
     return redirect(url_for('rewards.plant_a_future'))
+
+
 
 
 
@@ -408,29 +444,44 @@ def fertilize_tree(tree_id):
 
 @reward_bp.route('/delete_tree/<int:tree_id>', methods=['POST'])
 def delete_tree(tree_id):
-    """Delete a tree from the user's ownership."""
+    """Delete a tree from both the customer's and farmer's ownership."""
     user_id = session.get('user_id')
     if not user_id:
         flash("Unauthorized access.", "error")
         return redirect(url_for('profile.login'))
 
     with shelve.open(db_manager.db_name, writeback=True) as db:
-        ownership = db.get("ownership", {}).get(user_id, {})
-        trees = ownership.get("plants", [])
+        ownership = db.get("ownership", {})
+        customer_ownership = ownership.get(user_id, {})
+        customer_trees = customer_ownership.get("plants", [])
 
-        # Find and remove the tree
-        tree = next((t for t in trees if t["id"] == tree_id), None)
-        if tree:
-            trees.remove(tree)
-            flash(f"Tree '{tree['type']}' has been deleted.", "success")
-        else:
-            flash("Tree not found.", "error")
+        # Find the tree in the customer's ownership
+        tree = next((t for t in customer_trees if t["id"] == tree_id), None)
+        if not tree:
+            flash("Tree not found in your records.", "error")
+            return redirect(url_for('rewards.plant_a_future'))
 
-        # Save changes
-        ownership["plants"] = trees
-        db["ownership"][user_id] = ownership
+        # Remove the tree from the customer's ownership
+        customer_trees.remove(tree)
 
+        # Also remove the tree from the farmer's ownership
+        farmer_id = tree.get("farmer_id")
+        if farmer_id:
+            farmer_ownership = ownership.get(farmer_id, {})
+            farmer_trees = farmer_ownership.get("plants", [])
+            farmer_tree = next((t for t in farmer_trees if t["id"] == tree_id), None)
+            if farmer_tree:
+                farmer_trees.remove(farmer_tree)
+
+        # Save changes to the database
+        ownership[user_id] = customer_ownership
+        if farmer_id:
+            ownership[farmer_id] = farmer_ownership
+        db["ownership"] = ownership
+
+    flash(f"Tree '{tree['type']}' has been deleted.", "success")
     return redirect(url_for('rewards.plant_a_future'))
+
 
 def update_tree_times(user_id):
     with shelve.open(db_manager.db_name, writeback=True) as db:
@@ -473,3 +524,139 @@ def get_trees():
                 tree["health"] = 0  # Mark as dead if not fulfilled
 
     return jsonify({"trees": trees})
+
+@reward_bp.route('/farmer_plant_a_future', methods=['GET'])
+def farmer_plant_a_future():
+    """Display all trees planted in the farmer's field."""
+    if session.get('role') != 'farmer':
+        flash("Access denied! Only farmers can access this page.", "error")
+        return redirect(url_for('profile.profile'))
+
+    user_id = session.get('user_id')  # Farmer's ID
+    if not user_id:
+        flash("Unauthorized access.", "error")
+        return redirect(url_for('profile.login'))
+
+    with shelve.open(db_manager.db_name, writeback=True) as db:
+        ownership = db.get("ownership", {}).get(user_id, {})
+        plants = ownership.get("plants", [])
+        users = db.get("users", {})  # Retrieve all users (customers and farmers)
+
+        # Debugging print statements
+        print(f"Farmer ID: {user_id}")
+        print(f"Farmer Plants: {plants}")
+        print(f"Users in Database: {users}")
+
+        # Group trees by customer
+        customers = {}
+        for plant in plants:
+            customer_id = plant.get("customer_id")
+            if not customer_id:
+                print(f"Plant {plant['id']} is missing customer_id")
+                continue  # Skip if no customer_id is associated
+
+            # Get customer data from the database
+            customer = users.get(customer_id, {})
+            if not customer:
+                print(f"Customer ID {customer_id} not found in users")
+                continue
+
+            if customer_id not in customers:
+                customers[customer_id] = {
+                    "name": customer.get("name", "Unknown Customer"),
+                    "email": customer.get("email", "No Email"),
+                    "balance": customer.get("balance", 0),
+                    "trees": [],
+                }
+            customers[customer_id]["trees"].append(plant)
+
+    print(f"Final Grouped Customers: {customers}")  # Debug final grouping
+
+    nav_options = db_manager.get_nav_options(session.get('role'))
+
+    return render_template(
+        "farmer_plant_a_future.html",
+        nav_options=nav_options,
+        customers=customers  # Pass grouped customer-tree data to the template
+    )
+
+
+    return render_template(
+        "farmer_plant_a_future.html",
+        nav_options=nav_options,
+        customers=customers  # Pass grouped customer-tree data to the template
+    )
+
+
+@reward_bp.route('/update_tree_phase/<int:tree_id>', methods=['POST'])
+def update_tree_phase(tree_id):
+    """Allow farmers to update the stage of a tree."""
+    if session.get('role') != 'farmer':
+        flash("Access denied! Only farmers can update tree stages.", "error")
+        return redirect(url_for('rewards.farmer_plant_a_future'))
+
+    user_id = session.get('user_id')
+    new_stage = request.form.get('new_stage')
+
+    if not new_stage:
+        flash("Please select a valid stage.", "error")
+        return redirect(url_for('rewards.farmer_plant_a_future'))
+
+    with shelve.open(db_manager.db_name, writeback=True) as db:
+        ownership = db.get("ownership", {}).get(user_id, {})
+        trees = ownership.get("plants", [])
+        tree = next((t for t in trees if t["id"] == tree_id), None)
+
+        if not tree:
+            flash("Tree not found.", "error")
+            return redirect(url_for('rewards.farmer_plant_a_future'))
+
+        tree["phase"] = new_stage
+        flash(f"Tree stage updated to {new_stage}!", "success")
+
+    return redirect(url_for('rewards.farmer_plant_a_future'))
+
+@reward_bp.route('/mark_tree_dead/<int:tree_id>', methods=['POST'])
+def mark_tree_dead(tree_id):
+    """Allow farmers to mark a tree as dead with a reason."""
+    if session.get('role') != 'farmer':
+        flash("Access denied! Only farmers can mark trees as dead.", "error")
+        return redirect(url_for('rewards.farmer_plant_a_future'))
+
+    user_id = session.get('user_id')  # Farmer's ID
+    kill_reason = request.form.get('kill_reason')
+
+    if not kill_reason:
+        flash("Please provide a reason for killing the tree.", "error")
+        return redirect(url_for('rewards.farmer_plant_a_future'))
+
+    with shelve.open(db_manager.db_name, writeback=True) as db:
+        ownership = db.get("ownership", {})
+        farmer_ownership = ownership.get(user_id, {})
+        farmer_trees = farmer_ownership.get("plants", [])
+
+        # Find the tree in the farmer's ownership
+        tree = next((t for t in farmer_trees if t["id"] == tree_id), None)
+        if not tree:
+            flash("Tree not found in your records.", "error")
+            return redirect(url_for('rewards.farmer_plant_a_future'))
+
+        # Mark the tree as dead in the farmer's ownership
+        tree["phase"] = "Dead"
+        tree["kill_reason"] = kill_reason
+
+        # Update the tree in the customer's ownership
+        customer_id = tree.get("customer_id")
+        if customer_id:
+            customer_ownership = ownership.get(customer_id, {})
+            customer_trees = customer_ownership.get("plants", [])
+            customer_tree = next((t for t in customer_trees if t["id"] == tree_id), None)
+            if customer_tree:
+                customer_tree["phase"] = "Dead"
+                customer_tree["kill_reason"] = kill_reason
+
+        # Save changes
+        db["ownership"] = ownership
+
+    flash(f"Tree '{tree['type']}' marked as dead. Reason: {kill_reason}", "success")
+    return redirect(url_for('rewards.farmer_plant_a_future'))

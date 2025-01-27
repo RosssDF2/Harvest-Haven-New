@@ -1,26 +1,84 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Farmer Returns</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
-<body>
-    <!-- Navigation Bar -->
-    <header>
-        <ul>
-            {% for option in nav_options %}
-            <li><a href="{{ option.url }}">{{ option.name }}</a></li>
-            {% endfor %}
-            <!-- Logout Link -->
-            <li><a href="{{ url_for('profile.logout') }}">Logout</a></li>
-        </ul>
-    </header>
+<body class="bg-light">
+<!-- Header Section -->
+<header class="bg-success text-white py-3 mb-4">
+    <div class="container d-flex justify-content-between align-items-center">
+        <!-- Logo -->
+        <div class="d-flex align-items-center me-3">
+            <img src="{{ url_for('static', filename='uploads/Harvest Haven.png') }}" alt="Harvest Haven Logo" style="width: 80px; height: auto;">
+        </div>
 
-    <h1>Customer Returns</h1>
-    <ul>
-        {% for return_item in returns %}
-        <li>{{ return_item.name }} - Reason: {{ return_item.reason }}</li>
-        {% endfor %}
-    </ul>
+        <!-- Navigation Bar -->
+        <ul class="nav flex-grow-1 justify-content-center">
+            {% for option in nav_options %}
+            <li class="nav-item">
+                <a class="nav-link text-white" href="{{ option.url }}">{{ option.name }}</a>
+            </li>
+            {% endfor %}
+        </ul>
+
+        <!-- Dropdown Button -->
+        <div class="dropdown">
+            <button class="btn btn-light dropdown-toggle" type="button" id="dropdownMenuButton" data-bs-toggle="dropdown" aria-expanded="false">
+                Menu
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="dropdownMenuButton">
+                <li><a class="dropdown-item" href="{{ url_for('profile.profile') }}">Profile</a></li>
+                <li><a class="dropdown-item" href="{{ url_for('rewards.rewards') }}">Rewards</a></li>
+                <li><hr class="dropdown-divider"></li>
+                <li><a class="dropdown-item text-danger" href="{{ url_for('profile.logout') }}">Logout</a></li>
+            </ul>
+        </div>
+    </div>
+</header>
+
+<main class="container">
+    <h1 class="text-success">Customer Returns</h1>
+
+    <div class="row">
+        {% if returns %}
+            {% for return_item in returns %}
+            <div class="col-md-4 mb-4">
+                <div class="card h-100">
+                    <div class="card-body d-flex flex-column">
+                        <h5 class="card-title">{{ return_item.product_name }}</h5>
+                        <p class="card-text"><strong>Quantity:</strong> {{ return_item.quantity }}</p>
+                        <p class="card-text"><strong>Reason:</strong> {{ return_item.reason }}</p>
+
+                        <!-- Only Show Actions for Pending Requests -->
+                        {% if return_item.status not in ["approved", "rejected"] %}
+                        <form action="{{ url_for('returns.handle_return') }}" method="POST">
+                            <input type="hidden" name="product_id" value="{{ return_item.id }}">
+                            <input type="hidden" name="customer_id" value="{{ return_item.customer_id }}">
+                            <input type="hidden" name="product_name" value="{{ return_item.product_name }}">
+                            <div class="d-flex justify-content-between">
+                                <button type="submit" name="action" value="approve" class="btn btn-success">Approve</button>
+                                <button type="submit" name="action" value="reject" class="btn btn-danger">Reject</button>
+                            </div>
+                        </form>
+                        {% else %}
+                        <p class="text-muted">{{ return_item.status.capitalize() }}</p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <p class="text-center">No return requests available at the moment.</p>
+        {% endif %}
+    </div>
+</main>
+
+
+
 </body>
 </html>
