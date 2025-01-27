@@ -31,8 +31,14 @@
                         nextPhaseButton.disabled = true; // Disable Next Phase while timer is running
                         nextPhaseButton.style.backgroundColor = ""; // Reset button color
                         nextPhaseButton.style.color = "";
+                    } else if (tree.next_phase_enabled && tree.phase === "Mature Tree") {
+                        // Mature Tree stage and criteria are met
+                        countdownElement.textContent = "Congrats, please claim your rewards!";
+                        nextPhaseButton.disabled = false; // Enable Next Phase button
+                        nextPhaseButton.style.backgroundColor = "green";
+                        nextPhaseButton.style.color = "white";
                     } else if (tree.next_phase_enabled) {
-                        // Timer is 0 and criteria are met
+                        // Other phases and criteria are met
                         countdownElement.textContent = "Congrats, your plant can proceed to the next phase!";
                         nextPhaseButton.disabled = false; // Enable Next Phase button
                         nextPhaseButton.style.backgroundColor = "green";
@@ -53,6 +59,7 @@
 
 // Fetch updated data every second
 setInterval(fetchUpdatedTrees, 1000);
+
 
 
 </script>
@@ -82,28 +89,40 @@ setInterval(fetchUpdatedTrees, 1000);
 <div class="tree-options">
     <h2>Plant a New Tree</h2>
     <form method="POST" action="{{ url_for('rewards.plant_tree') }}">
-        <label for="tree-type">Select Tree Type:</label>
-<select name="tree_type" id="tree-type" required>
-    {% for tree_type, details in tree_types.items() %}
-    <option value="{{ tree_type }}">
-        {{ details.name }} - Cost: ${{ details.price }} / {{ details.price * points_conversion_rate }} points
-        - Expected Investment: ${{ details.investment_return }}
-    </option>
-    {% endfor %}
-</select>
+        <!-- Farmer Selection Dropdown -->
+        <label for="farmer-select">Select Farmer:</label>
+        <select name="farmer_id" id="farmer-select" required>
+            {% for farmer_id, farmer in farmers.items() %}
+                <option value="{{ farmer_id }}">{{ farmer.name }}</option>
+            {% endfor %}
+        </select>
 
+        <!-- Tree Type Dropdown -->
+        <label for="tree-type">Select Tree Type:</label>
+        <select name="tree_type" id="tree-type" required>
+            {% for tree_type, details in tree_types.items() %}
+                <option value="{{ tree_type }}">
+                    {{ details.name }} - Cost: ${{ details.price }} / {{ details.price * points_conversion_rate }} points
+                    - Expected Investment: ${{ details.investment_return }}
+                </option>
+            {% endfor %}
+        </select>
+
+        <!-- Payment Method -->
         <label for="payment-method">Payment Method:</label>
         <select name="payment_method" id="payment-method" required>
             <option value="balance">Balance</option>
             <option value="points">Points</option>
         </select>
+
         <button type="submit">Plant</button>
     </form>
 </div>
 
+
 <!-- Display trees only when the user has planted at least one -->
 {% for tree_id, tree in trees.items() %}
-<div class="tree-box {% if tree.health == 0 %}dead-tree{% elif tree.watered and tree.fertilized %}ready-tree{% else %}normal-tree{% endif %}">
+<div id="tree-box-{{ tree_id }}" class="tree-box {% if tree.health == 0 %}dead-tree{% elif tree.watered and tree.fertilized %}ready-tree{% else %}normal-tree{% endif %}">
     <h3>{{ tree.type }} - {{ tree.phase }}</h3>
     <p>Health: {{ tree.health }}</p>
     <p>Watered: {{ 'Yes' if tree.watered else 'No' }}</p>
@@ -111,18 +130,17 @@ setInterval(fetchUpdatedTrees, 1000);
     <p>Next Phase Time: {{ tree.next_phase_time }}</p>
     <div id="countdown-{{ tree_id }}">Time Remaining: {{ tree.time_remaining }}s</div>
 
-    <!-- Water button -->
+   <!-- Water button -->
     <form method="POST" action="{{ url_for('rewards.water_tree', tree_id=tree_id) }}">
         <button id="water-{{ tree_id }}" type="submit"
             {% if tree.watered or tree.health == 0 %}disabled{% endif %}>Water</button>
     </form>
 
-    <!-- Fertilize button -->
+     <!-- Fertilize button -->
     <form method="POST" action="{{ url_for('rewards.fertilize_tree', tree_id=tree_id) }}">
         <button id="fertilize-{{ tree_id }}" type="submit"
             {% if tree.fertilized or tree.health == 0 %}disabled{% endif %}>Fertilize</button>
     </form>
-
     <!-- Claim button for Mature Tree -->
     {% if tree.phase == "Mature Tree" %}
     <form method="POST" action="{{ url_for('rewards.next_phase', tree_id=tree_id) }}">
@@ -143,7 +161,31 @@ setInterval(fetchUpdatedTrees, 1000);
     <form method="POST" action="{{ url_for('rewards.delete_tree', tree_id=tree_id) }}">
         <button id="delete-{{ tree_id }}" type="submit" class="delete-button">Delete Tree</button>
     </form>
+
 </div>
+
+<script>
+    function startCountdown(treeId, remainingTime) {
+        remainingTime = Math.floor(remainingTime); // Prevent decimals at initialization
+        const countdownElement = document.getElementById(`countdown-${treeId}`);
+
+        const interval = setInterval(() => {
+            if (remainingTime > 0) {
+                countdownElement.textContent = `Time Remaining: ${remainingTime}s`;
+                remainingTime--; // Decrement by 1
+            } else {
+                clearInterval(interval);
+                countdownElement.textContent = "Time's up!";
+            }
+        }, 1000);
+    }
+
+    // Start countdowns for all trees
+    startCountdown({{ tree_id }}, {{ tree.time_remaining | round(0) }});
+</script>
+
+
+
 <script>
     startCountdown(
         {{ tree_id }},
