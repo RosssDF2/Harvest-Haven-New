@@ -42,39 +42,73 @@
 </header>
 
 <main class="container">
-    <h1 class="text-success mb-4">Order Confirmation</h1>
-
-    <div class="alert alert-success" role="alert">
-        Thank you, <strong>{{ billing_info.name }}</strong>! Your order has been successfully placed.
+    <div class="text-center mb-5">
+        <h1 class="text-success">Thank You for Shopping with Us!</h1>
+        <p class="fs-5">Please review your order details below before confirming.</p>
     </div>
 
-    <!-- Order Summary -->
-    <h2 class="fs-4">Order Details</h2>
-    <ul class="list-group mb-4">
-        {% for item in cart_items %}
-        <li class="list-group-item d-flex justify-content-between align-items-center">
-            {{ item.name }} - ${{ item.price }} x {{ item.quantity }}
-            <span class="fw-bold">${{ item.price * item.quantity }}</span>
-        </li>
-        {% endfor %}
-    </ul>
-    <p class="fs-5">Total: <span class="fw-bold text-success">${{ total }}</span></p>
-
-    <!-- Billing Information -->
+    <!-- Billing Details Section -->
     <div class="card mb-4">
-        <div class="card-header bg-success text-white">Billing Information</div>
+        <div class="card-header bg-success text-white">Billing Details</div>
         <div class="card-body">
             <p><strong>Name:</strong> {{ billing_info.name }}</p>
-            <p><strong>Billing Address:</strong> {{ billing_info.billing_address }}</p>
-            <p><strong>Last 4 Digits of Card:</strong> **** **** **** {{ billing_info.card_number }}</p>
             <p><strong>Postal Code:</strong> {{ billing_info.postal_code }}</p>
+            <p><strong>Billing Address:</strong> {{ billing_info.billing_address }}</p>
+            <p><strong>Card Details:</strong> **** **** **** {{ billing_info.card_number }}</p>
         </div>
     </div>
 
-    <!-- Action Buttons -->
-    <div class="d-flex justify-content-between">
-        <a href="{{ url_for('products.home') }}" class="btn btn-success">Continue Shopping</a>
-        <a href="{{ url_for('profile.profile') }}" class="btn btn-outline-success">View Profile</a>
+    <!-- Order Summary Section -->
+    <div class="card mb-4">
+        <div class="card-header bg-success text-white">Order Summary</div>
+        <div class="card-body">
+            <table class="table">
+                <thead class="table-success">
+                    <tr>
+                        <th>Product</th>
+                        <th>Quantity</th>
+                        <th>Price</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in cart_items %}
+                    <tr>
+                        <td>{{ item.name }}</td>
+                        <td>{{ item.quantity }}</td>
+                        <td>${{ item.price * item.quantity }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <td colspan="2"><strong>Total</strong></td>
+                        <td>${{ total }}</td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+
+    <!-- Confirm Order Button -->
+    <form action="{{ url_for('checkout.confirmation') }}" method="POST" class="text-center">
+        <button type="submit" class="btn btn-success btn-lg w-50">Confirm Order</button>
+    </form>
+
+    <div class="text-center mt-4">
+        <a href="/products" class="btn btn-primary">Shop More</a>
+    </div>
+
+    <!-- Help Desk Section -->
+    <div class="card mt-5">
+        <div class="card-header bg-info text-white">Need Help?</div>
+        <div class="card-body">
+            <p>Have questions or concerns about your order? We're here to help!</p>
+            <ul>
+                <li><a href="/faq">FAQs</a></li>
+                <li>Email us at: <a href="mailto:support@example.com">support@example.com</a></li>
+                <li>Call us: +65 1234 5678</li>
+            </ul>
+        </div>
     </div>
 </main>
 
