@@ -44,6 +44,14 @@
 <main class="container">
     <h1 class="text-success mb-4">Manage Your Products</h1>
 
+    <!-- Search Bar for Farmer Products -->
+<form method="GET" action="{{ url_for('products.search_farmer_products') }}" class="mb-4">
+    <div class="input-group">
+        <input type="text" name="query" class="form-control" placeholder="Search your products..." required>
+        <button type="submit" class="btn btn-primary">Search</button>
+    </div>
+</form>
+
     <!-- Display Products -->
     <div class="row">
     {% for product in products %}
@@ -80,11 +88,11 @@
 
                     <button type="submit" class="btn btn-primary w-100">Update</button>
                 </form>
+                <!-- Delete Product Form -->
                 <form method="POST" action="{{ url_for('products.delete_product', product_id=product.id) }}">
                     <button type="submit" class="btn btn-danger w-100">Delete</button>
                 </form>
 
-                <!-- Delete Product Form -->
             </div>
         </div>
     </div>
