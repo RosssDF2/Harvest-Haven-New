@@ -438,4 +438,3 @@ def adjust_user_points(self, user_id, points_delta):
 
 
 
-
