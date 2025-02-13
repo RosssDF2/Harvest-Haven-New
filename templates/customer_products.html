@@ -63,6 +63,14 @@
     </div>
 </form>
 
+    <!-- Search Bar -->
+    <form method="GET" action="{{ url_for('products.search_products') }}" class="mb-4">
+    <div class="input-group">
+        <input type="text" name="query" class="form-control" placeholder="Search for products..." required>
+        <button type="submit" class="btn btn-primary">Search</button>
+    </div>
+    </form>
+
 
     <!-- Display Products -->
     <div class="row">
