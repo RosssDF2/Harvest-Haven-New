@@ -193,3 +193,56 @@ def checkout():
     session['cart'] = []
     flash("Checkout successful!", "success")
     return redirect(url_for('products.home'))
+
+@product_bp.route('/search', methods=['GET'])
+def search_products():
+    """Search for products by name."""
+    query = request.args.get('query', '').strip().lower()
+    products = db_manager.get_products()
+
+    # Filter products based on query
+    searched_products = [
+        {"id": product_id, **product_data}
+        for product_id, product_data in products.items()
+        if query in product_data["name"].lower()
+    ]
+
+    user_role = session.get('role')
+    nav_options = db_manager.get_nav_options(user_role)
+
+    return render_template(
+        "customer_products.html",
+        products=searched_products,
+        nav_options=nav_options,
+        selected_category="All"
+    )
+@product_bp.route('/search_farmer_products', methods=['GET'])
+def search_farmer_products():
+    """Allow farmers to search their own products by name."""
+    if session.get('role') != 'farmer':
+        flash("Access denied! Only farmers can search their products.", "error")
+        return redirect(url_for('products.home'))
+
+    query = request.args.get('query', '').strip().lower()
+    user_id = session.get('user_id')
+    products = db_manager.get_products()
+
+    # Get only products belonging to the logged-in farmer
+    farmer_products = [
+        {"id": product_id, **product_data}
+        for product_id, product_data in products.items()
+        if product_data["farmer_id"] == user_id
+    ]
+
+    # Filter products based on search query
+    searched_products = [product for product in farmer_products if query in product["name"].lower()]
+
+    user_role = session.get('role')
+    nav_options = db_manager.get_nav_options(user_role)
+
+    return render_template(
+        "farmer_products.html",
+        products=searched_products,
+        nav_options=nav_options
+    )
+
