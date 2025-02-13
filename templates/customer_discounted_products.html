@@ -45,7 +45,7 @@
         <h1 class="text-success">Discounted Products</h1>
     </div>
 
-    <!-- Filter by Category -->
+    <!-- Filter by Category & Search Bar -->
     <form method="GET" action="{{ url_for('discounted.home') }}" class="mb-4">
         <div class="row">
             <div class="col-md-4">
@@ -58,8 +58,12 @@
                     <option value="Dairy" {% if selected_category == "Dairy" %}selected{% endif %}>Dairy</option>
                 </select>
             </div>
+            <div class="col-md-4">
+                <label for="search-bar" class="form-label">Search:</label>
+                <input type="text" id="search-bar" name="search" class="form-control" placeholder="Search products..." value="{{ search_query }}">
+            </div>
             <div class="col-md-2 d-flex align-items-end">
-                <button type="submit" class="btn btn-success">Filter</button>
+                <button type="submit" class="btn btn-success w-100">Apply</button>
             </div>
         </div>
     </form>
