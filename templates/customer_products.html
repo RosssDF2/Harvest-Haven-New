@@ -45,23 +45,24 @@
     <h1 class="text-success mb-4">Available Products</h1>
 
     <!-- Filter by Category -->
-    <form method="GET" action="{{ url_for('products.home') }}" class="mb-4">
-        <div class="row g-2">
-            <div class="col-md-6">
-                <label for="filter-category" class="form-label">Filter by Category:</label>
-                <select id="filter-category" name="category" class="form-select">
-                    <option value="" {% if not selected_category %}selected{% endif %}>All Categories</option>
-                    <option value="Vegetables" {% if selected_category == "Vegetables" %}selected{% endif %}>Vegetables</option>
-                    <option value="Fruits" {% if selected_category == "Fruits" %}selected{% endif %}>Fruits</option>
-                    <option value="Grains" {% if selected_category == "Grains" %}selected{% endif %}>Grains</option>
-                    <option value="Dairy" {% if selected_category == "Dairy" %}selected{% endif %}>Dairy</option>
-                </select>
-            </div>
-            <div class="col-md-6 d-flex align-items-end">
-                <button type="submit" class="btn btn-primary w-100">Filter</button>
-            </div>
+<form method="GET" action="{{ url_for('products.home') }}" class="mb-4">
+    <div class="row g-2">
+        <div class="col-md-6">
+            <label for="filter-category" class="form-label">Filter by Category:</label>
+            <select id="filter-category" name="category" class="form-select">
+                <option value="All" {% if not selected_category or selected_category == "All" %}selected{% endif %}>All Categories</option>
+                <option value="Vegetables" {% if selected_category == "Vegetables" %}selected{% endif %}>Vegetables</option>
+                <option value="Fruits" {% if selected_category == "Fruits" %}selected{% endif %}>Fruits</option>
+                <option value="Grains" {% if selected_category == "Grains" %}selected{% endif %}>Grains</option>
+                <option value="Dairy" {% if selected_category == "Dairy" %}selected{% endif %}>Dairy</option>
+            </select>
         </div>
-    </form>
+        <div class="col-md-6 d-flex align-items-end">
+            <button type="submit" class="btn btn-primary w-100">Filter</button>
+        </div>
+    </div>
+</form>
+
 
     <!-- Display Products -->
     <div class="row">
