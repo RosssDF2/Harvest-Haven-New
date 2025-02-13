@@ -2,7 +2,6 @@ import os
 from flask import Blueprint, render_template, request, session, flash, redirect, url_for
 from werkzeug.utils import secure_filename
 from database import EnhancedDatabaseManager
-from datetime import datetime
 
 discounted_bp = Blueprint('discounted', __name__)
 db_manager = EnhancedDatabaseManager()
@@ -19,28 +18,10 @@ def allowed_file(filename):
     """Check if the uploaded file has an allowed extension."""
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
-def remove_expired_products():
-    """Automatically remove discounted products that have expired."""
-    discounted_items = db_manager.get_all_items()
-    current_date = datetime.now().date()  # Get today's date
-
-    expired_items = [
-        item_id for item_id, item in discounted_items.items()
-        if datetime.strptime(item.get("expiry_date", ""), "%Y-%m-%d").date() < current_date
-    ]
-
-    if expired_items:
-        for item_id in expired_items:
-            del discounted_items[item_id]
-
-        db_manager.save_items(discounted_items)
-        print(f"Removed expired products: {expired_items}")
 
 @discounted_bp.route('/', methods=['GET'])
 def home():
     """Main discounted products page with optional filtering and search."""
-    remove_expired_products()  # Call function to auto-delete expired products
-
     user_role = session.get('role')
     nav_options = db_manager.get_nav_options(user_role)
 
@@ -52,6 +33,7 @@ def home():
     search_query = request.args.get('search', '').strip().lower()
 
     if selected_category:
+        # Filter discounted items by category
         discounted_items = {
             item_id: item
             for item_id, item in discounted_items.items()
@@ -59,12 +41,14 @@ def home():
         }
 
     if search_query:
+        # Filter discounted items by search query
         discounted_items = {
             item_id: item
             for item_id, item in discounted_items.items()
             if search_query in item.get('name', '').lower()
         }
 
+    # Include item IDs for template rendering
     discounted_items_with_ids = [
         {"id": item_id, **item_data}
         for item_id, item_data in discounted_items.items()
@@ -84,6 +68,7 @@ def home():
             items=discounted_items_with_ids,
             nav_options=nav_options,
         )
+
 
 @discounted_bp.route('/add_discounted', methods=['POST'])
 def add_discounted():
@@ -132,6 +117,22 @@ def add_discounted():
         flash(f"Error adding discounted product: {e}", "error")
     return redirect(url_for('discounted.home'))
 
+def remove_expired_products():
+    """Automatically remove discounted products that have expired."""
+    discounted_items = db_manager.get_all_items()
+    current_date = datetime.now().date()  # Get today's date
+
+    expired_items = [
+        item_id for item_id, item in discounted_items.items()
+        if datetime.strptime(item.get("expiry_date", ""), "%Y-%m-%d").date() < current_date
+    ]
+
+    if expired_items:
+        for item_id in expired_items:
+            del discounted_items[item_id]
+
+        db_manager.save_items(discounted_items)
+        print(f"Removed expired products: {expired_items}")
 
 @discounted_bp.route('/update_discounted/<int:item_id>', methods=['POST'])
 def update_discounted(item_id):
@@ -234,4 +235,3 @@ def buy_discounted(item_id):
 
     flash(f"Successfully purchased {quantity}x '{item['name']}' for ${total_price:.2f}.", "success")
     return redirect(url_for('discounted.home'))
-
