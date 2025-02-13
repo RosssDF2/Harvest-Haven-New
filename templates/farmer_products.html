@@ -71,7 +71,6 @@
                     <select id="category-{{ product.id }}" name="category" class="form-select mb-2" required>
                         <option value="Vegetables" {% if product.category == "Vegetables" %}selected{% endif %}>Vegetables</option>
                         <option value="Fruits" {% if product.category == "Fruits" %}selected{% endif %}>Fruits</option>
-                        <option value="Animals" {% if product.category == "Animals" %}selected{% endif %}>Animals</option>
                         <option value="Grains" {% if product.category == "Grains" %}selected{% endif %}>Grains</option>
                         <option value="Dairy" {% if product.category == "Dairy" %}selected{% endif %}>Dairy</option>
                     </select>
