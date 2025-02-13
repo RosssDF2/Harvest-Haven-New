@@ -434,6 +434,87 @@ def adjust_user_points(self, user_id, points_delta):
         users[user_id] = user
         db["users"] = users
 
+def add_return_transaction(self, user_id, product_name, reason):
+    """
+    Add a return transaction to the user's history.
+
+    :param user_id: ID of the user
+    :param product_name: Name of the returned product
+    :param reason: Reason for the return
+    """
+    with shelve.open(self.db_name, writeback=True) as db:
+        return_transactions = db.setdefault("return_transactions", {})
+        user_returns = return_transactions.setdefault(user_id, [])
+        user_returns.append({
+            "product_name": product_name,
+            "reason": reason,
+            "status": "pending",  # Default status
+            "instructions": None,  # Default instructions
+            "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        })
+        print("Return Transactions for User:", return_transactions.get(user_id, []))
+
+def get_farmer_notifications(self, farmer_id):
+    """Fetch pending return requests for the specified farmer."""
+    with shelve.open(self.db_name) as db:
+        return_transactions = db.get("return_transactions", {})
+        products = db.get("products", {})
+        farmer_returns = []
+
+        for customer_id, transactions in return_transactions.items():
+            for transaction in transactions:
+                product_name = transaction.get("product_name")
+                for product_id, product_data in products.items():
+                    if (
+                            product_data["name"] == product_name
+                            and product_data["uploaded_by"] == farmer_id
+                            and transaction.get("status") == "pending"  # Only pending returns
+                    ):
+                        farmer_returns.append({
+                            "id": product_id,
+                            "product_name": product_name,
+                            "quantity": transaction.get("quantity", 1),
+                            "reason": transaction.get("reason"),
+                            "customer_id": customer_id,
+                        })
+
+        return farmer_returns
+
+def update_return_status(self, user_id, transaction_id, new_status):
+    """
+    Update the status of a return transaction (approve, reject).
+
+    :param user_id: ID of the user making the return
+    :param transaction_id: ID of the transaction to update
+    :param new_status: New status ("approve" or "reject")
+    """
+    if new_status not in ["pending", "approve", "reject"]:
+        raise ValueError("Invalid status. Must be 'pending', 'approve', or 'reject'.")
+
+    with shelve.open(self.db_name, writeback=True) as db:
+        return_transactions = db.get("return_transactions", {})
+        user_returns = return_transactions.get(user_id, [])
+
+        for transaction in user_returns:
+            if transaction.get("id") == transaction_id:
+                transaction["status"] = new_status
+                db["return_transactions"] = return_transactions
+                print(f"Updated transaction {transaction_id} to status '{new_status}'")
+                return transaction
+
+    raise ValueError(f"Transaction with ID '{transaction_id}' not found.")
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
