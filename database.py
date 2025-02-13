@@ -147,11 +147,6 @@ class EnhancedDatabaseManager:
 
             return farmer_returns
 
-    def get_products(self):
-        """Retrieve all products."""
-        with shelve.open(self.db_name) as db:
-            return db.get("products", {})
-
     def get_ownership(self, user_id):
         """Retrieve ownership details for a user."""
         with shelve.open(self.db_name) as db:
@@ -266,15 +261,27 @@ class EnhancedDatabaseManager:
             print(f"Error reading transactions: {e}")
             return []
 
-    def save_products(self, products):
-        """Save the updated products dictionary."""
+        def save_products(self, products):
+        """Save the updated products dictionary and ensure all have farmer_id."""
         with shelve.open(self.db_name, writeback=True) as db:
+            for product_id, product in products.items():
+                if "farmer_id" not in product:
+                    product["farmer_id"] = product.get("uploaded_by", "unknown_farmer")
             db["products"] = products
 
     def get_products(self):
-        """Retrieve all products."""
-        with shelve.open(self.db_name) as db:
-            return db.get("products", {})
+        """Retrieve all products and ensure each product has a farmer_id."""
+        with shelve.open(self.db_name, writeback=True) as db:
+            products = db.get("products", {})
+
+            # ✅ Ensure every product has a farmer_id
+            for product_id, product in products.items():
+                if "farmer_id" not in product:
+                    product["farmer_id"] = product.get("uploaded_by", "unknown_farmer")
+            db["products"] = products  # Save changes
+
+        return products
+
 
     def add_transaction(self, user_id, product_name, amount, quantity):
         """
