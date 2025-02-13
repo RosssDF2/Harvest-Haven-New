@@ -2,6 +2,7 @@ import os
 from flask import Blueprint, render_template, request, session, flash, redirect, url_for
 from werkzeug.utils import secure_filename
 from database import EnhancedDatabaseManager
+from datetime import datetime
 
 discounted_bp = Blueprint('discounted', __name__)
 db_manager = EnhancedDatabaseManager()
@@ -18,28 +19,52 @@ def allowed_file(filename):
     """Check if the uploaded file has an allowed extension."""
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
+def remove_expired_products():
+    """Automatically remove discounted products that have expired."""
+    discounted_items = db_manager.get_all_items()
+    current_date = datetime.now().date()  # Get today's date
+
+    expired_items = [
+        item_id for item_id, item in discounted_items.items()
+        if datetime.strptime(item.get("expiry_date", ""), "%Y-%m-%d").date() < current_date
+    ]
+
+    if expired_items:
+        for item_id in expired_items:
+            del discounted_items[item_id]
+
+        db_manager.save_items(discounted_items)
+        print(f"Removed expired products: {expired_items}")
 
 @discounted_bp.route('/', methods=['GET'])
 def home():
-    """Main discounted products page with optional filtering."""
+    """Main discounted products page with optional filtering and search."""
+    remove_expired_products()  # Call function to auto-delete expired products
+
     user_role = session.get('role')
     nav_options = db_manager.get_nav_options(user_role)
 
     # Retrieve discounted items from the database
     discounted_items = db_manager.get_all_items()
 
-    # Get the selected category from query parameters
+    # Get filtering options from query parameters
     selected_category = request.args.get('category')
+    search_query = request.args.get('search', '').strip().lower()
 
     if selected_category:
-        # Filter discounted items by category
         discounted_items = {
             item_id: item
             for item_id, item in discounted_items.items()
             if item.get('category') == selected_category
         }
 
-    # Include item IDs for template rendering
+    if search_query:
+        discounted_items = {
+            item_id: item
+            for item_id, item in discounted_items.items()
+            if search_query in item.get('name', '').lower()
+        }
+
     discounted_items_with_ids = [
         {"id": item_id, **item_data}
         for item_id, item_data in discounted_items.items()
@@ -51,6 +76,7 @@ def home():
             items=discounted_items_with_ids,
             nav_options=nav_options,
             selected_category=selected_category,
+            search_query=search_query
         )
     elif user_role == 'farmer':
         return render_template(
@@ -58,7 +84,6 @@ def home():
             items=discounted_items_with_ids,
             nav_options=nav_options,
         )
-
 
 @discounted_bp.route('/add_discounted', methods=['POST'])
 def add_discounted():
@@ -72,11 +97,12 @@ def add_discounted():
     price = request.form.get('price')
     stock = request.form.get('stock')
     category = request.form.get('category')
+    expiry_date = request.form.get('expiry_date')  # New field
     image = request.files.get('image')
 
     # Validate inputs
-    if not name or not price or not stock or not category or not image:
-        flash("All fields, including an image, are required.", "error")
+    if not name or not price or not stock or not category or not expiry_date or not image:
+        flash("All fields, including an image and expiry date, are required.", "error")
         return redirect(url_for('discounted.home'))
 
     if not allowed_file(image.filename):
@@ -96,6 +122,7 @@ def add_discounted():
             "price": float(price),
             "stock": int(stock),
             "category": category,
+            "expiry_date": expiry_date,  # New field
             "image_url": f"/static/uploads/{filename}",
         }
         db_manager.save_items(discounted_items)
@@ -120,9 +147,10 @@ def update_discounted(item_id):
     price = request.form.get('price')
     stock = request.form.get('stock')
     category = request.form.get('category')
+    expiry_date = request.form.get('expiry_date')  # New field
     image = request.files.get('image')
 
-    if not name or not price or not stock or not category:
+    if not name or not price or not stock or not category or not expiry_date:
         flash("All fields (except image) are required.", "error")
         return redirect(url_for('discounted.home'))
 
@@ -133,6 +161,7 @@ def update_discounted(item_id):
         item['price'] = float(price)
         item['stock'] = int(stock)
         item['category'] = category
+        item['expiry_date'] = expiry_date  # New field
 
         # Save new image if provided
         if image and allowed_file(image.filename):
@@ -205,3 +234,4 @@ def buy_discounted(item_id):
 
     flash(f"Successfully purchased {quantity}x '{item['name']}' for ${total_price:.2f}.", "success")
     return redirect(url_for('discounted.home'))
+
