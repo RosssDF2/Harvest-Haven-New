@@ -26,18 +26,17 @@
         </ul>
 
         <!-- Dropdown Button -->
-<div class="d-flex align-items-center">
-    <div class="dropdown me-2">
-        <button class="btn btn-light dropdown-toggle" type="button" id="dropdownMenuButton" data-bs-toggle="dropdown" aria-expanded="false">Menu</button>
-        <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="dropdownMenuButton">
-            <li><a class="dropdown-item" href="{{ url_for('profile.profile') }}">Profile</a></li>
-            <li><a class="dropdown-item" href="{{ url_for('rewards.rewards') }}">Rewards</a></li>
-            <li><hr class="dropdown-divider"></li>
-            <li><a class="dropdown-item text-danger" href="{{ url_for('profile.logout') }}">Logout</a></li>
-        </ul>
-    </div>
-    <button class="btn btn-danger px-3" style="margin-left: 10px;" data-bs-toggle="modal" data-bs-target="#reportModal">Report</button>
-</div>
+        <div class="dropdown">
+            <button class="btn btn-light dropdown-toggle" type="button" id="dropdownMenuButton" data-bs-toggle="dropdown" aria-expanded="false">
+                Menu
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="dropdownMenuButton">
+                <li><a class="dropdown-item" href="{{ url_for('profile.profile') }}">Profile</a></li>
+                <li><a class="dropdown-item" href="{{ url_for('rewards.rewards') }}">Rewards</a></li>
+                <li><hr class="dropdown-divider"></li>
+                <li><a class="dropdown-item text-danger" href="{{ url_for('profile.logout') }}">Logout</a></li>
+            </ul>
+        </div>
     </div>
 </header>
 
