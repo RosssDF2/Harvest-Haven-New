@@ -44,23 +44,15 @@ class EnhancedDatabaseManager:
             # Default products
             if "products" not in db:
                 db["products"] = {
-                    1: {
-                        "name": "Carrot",
-                        "price": 1.50,
-                        "quantity": 100,
-                        "category": "Vegetables",
-                        "image_url": "placeholder.png",
-                        "uploaded_by": "farmer1",  # Add the farmer's username
-                    },
-                    2: {
-                        "name": "Tomato",
-                        "price": 2.00,
-                        "quantity": 50,
-                        "category": "Vegetables",
-                        "image_url": "placeholder.png",
-                        "uploaded_by": "farmer2",
-                    },
+                    1: {"name": "Carrot", "price": 1.50, "quantity": 100, "category": "Vegetables",
+                        "image_url": "placeholder.png", "uploaded_by": "farmer1", "farmer_id": "farmer1"},
+                    2: {"name": "Tomato", "price": 2.00, "quantity": 50, "category": "Vegetables",
+                        "image_url": "placeholder.png", "uploaded_by": "farmer2", "farmer_id": "farmer2"},
                 }
+                for product_id, product in db["products"].items():
+                    if "farmer_id" not in product:
+                        product["farmer_id"] = product.get("uploaded_by", "unknown_farmer")  # Assign dynamically
+                db["products"] = db["products"]  # Save changes
 
                 # Default ownership
                 if "ownership" not in db:
@@ -154,9 +146,18 @@ class EnhancedDatabaseManager:
             return farmer_returns
 
     def get_products(self):
-        """Retrieve all products."""
-        with shelve.open(self.db_name) as db:
-            return db.get("products", {})
+        """Retrieve all products and ensure each product has a farmer_id."""
+        with shelve.open(self.db_name, writeback=True) as db:
+            products = db.get("products", {})
+
+            # Ensure every product has a farmer_id
+            for product_id, product in products.items():
+                if "farmer_id" not in product:
+                    product["farmer_id"] = product.get("uploaded_by",
+                                                       "unknown_farmer")  # Assign based on uploader or default
+            db["products"] = products  # Save changes
+
+        return products
 
     def get_ownership(self, user_id):
         """Retrieve ownership details for a user."""
@@ -176,10 +177,11 @@ class EnhancedDatabaseManager:
         """Return navigation options based on user role."""
         nav_options = {
             "farmer": [
-                {"name": "Profile", "url": "/profile/profile"},  # Ensure this is included
+                {"name": "Profile", "url": "/profile/profile"},
                 {"name": "Products", "url": "/products/"},
                 {"name": "Discounted Products", "url": "/discounted/"},
-                {"name": "Your Farm", "url": "/rewards/farmer_plant_a_future"},  # Added "Your Farm"
+                {"name": "Your Farm", "url": "/rewards/farmer_plant_a_future"},
+                {"name": "Orders", "url": "/checkout/farmer_purchases"},  # ✅ Added Farmer Orders Section
                 {"name": "Returns", "url": "/returns/farmer_returns"},
             ],
             "customer": [
@@ -353,7 +355,6 @@ class EnhancedDatabaseManager:
             all_ownership[user_id] = ownership
             db["ownership"] = all_ownership
 
-
     def add_return_transaction(self, user_id, product_name, reason):
         """
         Add a return transaction to the user's history.
@@ -384,9 +385,6 @@ def save_users(self, users):
         db["users"] = users
 
 
-
-
-
 def adjust_user_points(self, user_id, points_delta):
     """
     Adjust the user's points by adding or deducting points.
@@ -411,6 +409,7 @@ def adjust_user_points(self, user_id, points_delta):
         users[user_id] = user
         db["users"] = users
 
+
 def submit_report(self, user_id, report_content, category):
     """Submit a report and save it to the database."""
     report_id = self.generate_report_id()
@@ -431,11 +430,13 @@ def submit_report(self, user_id, report_content, category):
     print(f"Report submitted with ID: {report_id}")
     return report_id
 
+
 def generate_report_id(self):
     """Generate a unique report ID."""
     with shelve.open(self.db_name) as db:
         reports = db.get("reports", {})
         return len(reports) + 1
+
 
 def get_reports(self, user_id=None, category=None):
     """Retrieve all reports, optionally filtered by user or category."""
@@ -449,6 +450,7 @@ def get_reports(self, user_id=None, category=None):
         reports = {k: v for k, v in reports.items() if v["category"] == category}
 
     return reports
+
 
 def update_report_status(self, report_id, new_status):
     """Update the status of a report."""
@@ -464,12 +466,41 @@ def update_report_status(self, report_id, new_status):
             return reports[report_id]
 
 
+def save_products(self, products):
+    """Save the updated products dictionary."""
+    with shelve.open(self.db_name, writeback=True) as db:
+        db["products"] = products
 
 
+def add_order(self, farmer_id, buyer_name, product_name, quantity, price):
+    """Store order details under the respective farmer."""
+    with shelve.open(self.db_name, writeback=True) as db:
+        orders = db.setdefault("orders", {})  # Ensure "orders" key exists
+        order_id = len([o for v in orders.values() for o in v]) + 1  # Generate unique order ID
+
+        order = {
+            "order_id": order_id,
+            "farmer_id": farmer_id,
+            "buyer_name": buyer_name,
+            "product_name": product_name,
+            "quantity": quantity,
+            "price": price,
+            "status": "Pending",
+            "created_at": datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S'),
+        }
+
+        # Store the order under the farmer's ID
+        orders.setdefault(farmer_id, []).append(order)
+
+        db["orders"] = orders  # Save changes
 
 
-
-
-
+def get_farmer_orders(self, farmer_id):
+    """Retrieve all orders for a given farmer."""
+    with shelve.open(self.db_name) as db:
+        orders = db.get("orders", {})  # Ensure "orders" key exists
+        farmer_orders = orders.get(farmer_id, [])
+        print(f"DEBUG: Orders fetched for farmer {farmer_id}: {farmer_orders}")  # Debugging
+        return farmer_orders  # Return orders for the specific farmer
 
 
