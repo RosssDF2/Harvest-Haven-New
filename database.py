@@ -111,6 +111,13 @@ class EnhancedDatabaseManager:
                         "investment_return": 60.0,
                     },
                 }
+            if "orders" not in db:
+                db["orders"] = {}
+
+            if "reports" not in db:
+                db["reports"] = {}
+
+            print("Database initialized with default values.")
 
     def get_users(self):
         """Retrieve all users."""
@@ -118,34 +125,38 @@ class EnhancedDatabaseManager:
             return db.get("users", {})
 
     def get_farmer_notifications(self, farmer_id):
-        """
-        Fetch pending return requests for the specified farmer.
-        :param farmer_id: ID of the farmer
-        :return: List of return requests relevant to the farmer
-        """
+        """Fetch pending return requests for the specified farmer."""
         with shelve.open(self.db_name) as db:
-            # Get all return transactions
             return_transactions = db.get("return_transactions", {})
             products = db.get("products", {})
             farmer_returns = []
 
-            # Loop through all return transactions
             for customer_id, transactions in return_transactions.items():
                 for transaction in transactions:
-                    # Find the product associated with the return
                     product_name = transaction.get("product_name")
                     for product_id, product_data in products.items():
-                        # Check if the product belongs to the farmer
-                        if product_data["name"] == product_name and product_data["uploaded_by"] == farmer_id:
+                        if (
+                                product_data["name"] == product_name
+                                and product_data.get(
+                            "uploaded_by") == farmer_id  # Ensure only farmer's products are retrieved
+                                and transaction.get("status", "pending") == "pending"
+                        ):
                             farmer_returns.append({
-                                "id": transaction.get("id"),  # Unique ID for the return (if available)
+                                "id": product_id,
                                 "product_name": product_name,
-                                "quantity": transaction.get("quantity", 1),  # Default to 1 if not specified
+                                "quantity": transaction.get("quantity", 1),
                                 "reason": transaction.get("reason"),
                                 "customer_id": customer_id,
+                                "status": transaction.get("status", "pending"),
                             })
 
+            print(f"DEBUG: Returns fetched for farmer {farmer_id}: {farmer_returns}")
             return farmer_returns
+
+    def get_products(self):
+        """Retrieve all products."""
+        with shelve.open(self.db_name) as db:
+            return db.get("products", {})
 
     def get_ownership(self, user_id):
         """Retrieve ownership details for a user."""
@@ -261,27 +272,15 @@ class EnhancedDatabaseManager:
             print(f"Error reading transactions: {e}")
             return []
 
-        def save_products(self, products):
-        """Save the updated products dictionary and ensure all have farmer_id."""
+    def save_products(self, products):
+        """Save the updated products dictionary."""
         with shelve.open(self.db_name, writeback=True) as db:
-            for product_id, product in products.items():
-                if "farmer_id" not in product:
-                    product["farmer_id"] = product.get("uploaded_by", "unknown_farmer")
             db["products"] = products
 
     def get_products(self):
-        """Retrieve all products and ensure each product has a farmer_id."""
-        with shelve.open(self.db_name, writeback=True) as db:
-            products = db.get("products", {})
-
-            # ✅ Ensure every product has a farmer_id
-            for product_id, product in products.items():
-                if "farmer_id" not in product:
-                    product["farmer_id"] = product.get("uploaded_by", "unknown_farmer")
-            db["products"] = products  # Save changes
-
-        return products
-
+        """Retrieve all products."""
+        with shelve.open(self.db_name) as db:
+            return db.get("products", {})
 
     def add_transaction(self, user_id, product_name, amount, quantity):
         """
@@ -322,7 +321,7 @@ class EnhancedDatabaseManager:
 
         :param username: Unique username for the user
         :param name: Full name of the user
-        :param email: Email address of the user
+        :param email: Email address of the usaer
         :param role: Role of the user (customer or farmer)
         :param points: Initial points for the user
         :param password: Password for the user
@@ -354,31 +353,6 @@ class EnhancedDatabaseManager:
             all_ownership[user_id] = ownership
             db["ownership"] = all_ownership
 
-    def get_farmer_notifications(self, farmer_id):
-        """Fetch pending return requests for the specified farmer."""
-        with shelve.open(self.db_name) as db:
-            return_transactions = db.get("return_transactions", {})
-            products = db.get("products", {})
-            farmer_returns = []
-
-            for customer_id, transactions in return_transactions.items():
-                for transaction in transactions:
-                    product_name = transaction.get("product_name")
-                    for product_id, product_data in products.items():
-                        if (
-                                product_data["name"] == product_name
-                                and product_data["uploaded_by"] == farmer_id
-                                and transaction.get("status") == "pending"
-                        ):
-                            farmer_returns.append({
-                                "id": product_id,
-                                "product_name": product_name,
-                                "quantity": transaction.get("quantity", 1),
-                                "reason": transaction.get("reason"),
-                                "customer_id": customer_id,
-                            })
-
-            return farmer_returns
 
     def add_return_transaction(self, user_id, product_name, reason):
         """
@@ -394,11 +368,14 @@ class EnhancedDatabaseManager:
             user_returns.append({
                 "product_name": product_name,
                 "reason": reason,
-                "status": "pending",  # Default status
+                "status": "pending",  # Ensure status is set
                 "instructions": None,  # Default instructions
                 "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             })
-            print("Return Transactions for User:", return_transactions.get(user_id, []))
+            return_transactions[user_id] = user_returns
+            db["return_transactions"] = return_transactions
+
+        print("DEBUG: Return Transactions for User:", return_transactions.get(user_id, []))
 
 
 def save_users(self, users):
@@ -434,87 +411,57 @@ def adjust_user_points(self, user_id, points_delta):
         users[user_id] = user
         db["users"] = users
 
-def add_return_transaction(self, user_id, product_name, reason):
-    """
-    Add a return transaction to the user's history.
+def submit_report(self, user_id, report_content, category):
+    """Submit a report and save it to the database."""
+    report_id = self.generate_report_id()
 
-    :param user_id: ID of the user
-    :param product_name: Name of the returned product
-    :param reason: Reason for the return
-    """
+    report = {
+        "user_id": user_id,
+        "content": report_content,
+        "category": category,
+        "status": "pending",
+        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+    }
+
     with shelve.open(self.db_name, writeback=True) as db:
-        return_transactions = db.setdefault("return_transactions", {})
-        user_returns = return_transactions.setdefault(user_id, [])
-        user_returns.append({
-            "product_name": product_name,
-            "reason": reason,
-            "status": "pending",  # Default status
-            "instructions": None,  # Default instructions
-            "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        })
-        print("Return Transactions for User:", return_transactions.get(user_id, []))
+        reports = db.get("reports", {})
+        reports[report_id] = report
+        db["reports"] = reports
 
-def get_farmer_notifications(self, farmer_id):
-    """Fetch pending return requests for the specified farmer."""
+    print(f"Report submitted with ID: {report_id}")
+    return report_id
+
+def generate_report_id(self):
+    """Generate a unique report ID."""
     with shelve.open(self.db_name) as db:
-        return_transactions = db.get("return_transactions", {})
-        products = db.get("products", {})
-        farmer_returns = []
+        reports = db.get("reports", {})
+        return len(reports) + 1
 
-        for customer_id, transactions in return_transactions.items():
-            for transaction in transactions:
-                product_name = transaction.get("product_name")
-                for product_id, product_data in products.items():
-                    if (
-                            product_data["name"] == product_name
-                            and product_data["uploaded_by"] == farmer_id
-                            and transaction.get("status") == "pending"  # Only pending returns
-                    ):
-                        farmer_returns.append({
-                            "id": product_id,
-                            "product_name": product_name,
-                            "quantity": transaction.get("quantity", 1),
-                            "reason": transaction.get("reason"),
-                            "customer_id": customer_id,
-                        })
+def get_reports(self, user_id=None, category=None):
+    """Retrieve all reports, optionally filtered by user or category."""
+    with shelve.open(self.db_name) as db:
+        reports = db.get("reports", {})
 
-        return farmer_returns
+    if user_id:
+        reports = {k: v for k, v in reports.items() if v["user_id"] == user_id}
 
-def update_return_status(self, user_id, transaction_id, new_status):
-    """
-    Update the status of a return transaction (approve, reject).
+    if category:
+        reports = {k: v for k, v in reports.items() if v["category"] == category}
 
-    :param user_id: ID of the user making the return
-    :param transaction_id: ID of the transaction to update
-    :param new_status: New status ("approve" or "reject")
-    """
-    if new_status not in ["pending", "approve", "reject"]:
-        raise ValueError("Invalid status. Must be 'pending', 'approve', or 'reject'.")
+    return reports
+
+def update_report_status(self, report_id, new_status):
+    """Update the status of a report."""
+    if new_status not in ["pending", "resolved", "closed"]:
+        raise ValueError("Invalid status. Must be 'pending', 'resolved', or 'closed'.")
 
     with shelve.open(self.db_name, writeback=True) as db:
-        return_transactions = db.get("return_transactions", {})
-        user_returns = return_transactions.get(user_id, [])
-
-        for transaction in user_returns:
-            if transaction.get("id") == transaction_id:
-                transaction["status"] = new_status
-                db["return_transactions"] = return_transactions
-                print(f"Updated transaction {transaction_id} to status '{new_status}'")
-                return transaction
-
-    raise ValueError(f"Transaction with ID '{transaction_id}' not found.")
-
-
-
-
-
-
-
-
-
-
-
-
+        reports = db.get("reports", {})
+        if report_id in reports:
+            reports[report_id]["status"] = new_status
+            db["reports"] = reports
+            print(f"Updated report {report_id} to status '{new_status}'")
+            return reports[report_id]
 
 
 
