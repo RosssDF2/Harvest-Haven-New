@@ -32,6 +32,45 @@ def home():
             "customer_products.html",
             products=products_with_ids,
             nav_options=nav_options,
+            selected_category=selected_category
+        )
+
+    elif user_role == 'farmer':
+        # ✅ Prevent KeyError if 'farmer_id' is missing
+        owned_products = [
+            product for product in products_with_ids
+            if product.get("farmer_id", "unknown_farmer") == user_id
+        ]
+        return render_template(
+            "farmer_products.html",
+            products=owned_products,
+            nav_options=nav_options
+        )
+    user_id = session.get('user_id')
+    user_role = session.get('role')
+    nav_options = db_manager.get_nav_options(user_role)
+
+    # Get all products
+    products = db_manager.get_products()
+
+    # Get selected category from query parameters
+    selected_category = request.args.get('category', '')
+
+    # Convert products dictionary into a list with IDs
+    products_with_ids = [
+        {"id": product_id, **product_data}
+        for product_id, product_data in products.items()
+    ]
+
+    # Apply category filtering if a category is selected
+    if selected_category and selected_category != "All":
+        products_with_ids = [product for product in products_with_ids if product["category"] == selected_category]
+
+    if user_role == 'customer':
+        return render_template(
+            "customer_products.html",
+            products=products_with_ids,
+            nav_options=nav_options,
             selected_category=selected_category  # ✅ Pass the selected category to the template
         )
 
@@ -245,4 +284,3 @@ def search_farmer_products():
         products=searched_products,
         nav_options=nav_options
     )
-
