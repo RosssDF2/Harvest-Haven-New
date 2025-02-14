@@ -9,7 +9,6 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body class="bg-light">
-<!-- Header Section -->
 <header class="bg-success text-white py-3 mb-4">
     <div class="container d-flex justify-content-between align-items-center">
         <!-- Logo -->
@@ -21,9 +20,8 @@
         <ul class="nav flex-grow-1 justify-content-center">
             {% for option in nav_options %}
             <li class="nav-item">
-    <a class="nav-link text-white" href="{{ url_for('returns.farmer_returns') }}">Returns</a>
-</li>
-
+                <a class="nav-link text-white" href="{{ option.url }}">{{ option.name }}</a>
+            </li>
             {% endfor %}
         </ul>
 
@@ -34,7 +32,6 @@
             </button>
             <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="dropdownMenuButton">
                 <li><a class="dropdown-item" href="{{ url_for('profile.profile') }}">Profile</a></li>
-                <li><hr class="dropdown-divider"></li>
                 <li><a class="dropdown-item text-danger" href="{{ url_for('profile.logout') }}">Logout</a></li>
             </ul>
         </div>
