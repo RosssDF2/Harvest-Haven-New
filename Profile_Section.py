@@ -1,3 +1,5 @@
+from urllib.request import Request
+
 from flask import Blueprint, render_template, request, redirect, url_for, session, flash
 from database import EnhancedDatabaseManager
 import shelve
@@ -48,6 +50,10 @@ def login():
                 return redirect(url_for('profile.profile'))
 
     return render_template('profile_login.html')
+
+@profile_bp.route('/reset_password')
+def reset_request():
+    return render_template('reset_request.html',title='Reset Request',form=form)
 
 
 @profile_bp.route('/profile')
@@ -136,4 +142,3 @@ def add_points():
         flash("Invalid points input. Please enter a valid number.", "error")
 
     return redirect(url_for('profile.profile'))
-
