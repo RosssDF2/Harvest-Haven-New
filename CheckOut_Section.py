@@ -165,11 +165,21 @@ def farmer_purchases():
     """Allow farmers to view customer purchases."""
     if session.get('role') != 'farmer':
         flash("Access denied! Only farmers can view this page.", "error")
-        return redirect(url_for('profile.home'))
+        return redirect(url_for('profile.profile'))
+
+    db_manager = EnhancedDatabaseManager()  # ✅ Ensure db_manager is initialized
 
     user = User(session.get('user_id'), session.get('role'))
-    purchases = user.get_ownership().get("products", [])
-    return render_template("farmer_checkout.html", purchases=purchases)
+    purchases = db_manager.get_farmer_orders(user.user_id)  # ✅ Retrieve farmer's orders
+    products = db_manager.get_products()  # ✅ Retrieve all products
+
+    print(f"DEBUG: Purchases for farmer {user.user_id}: {purchases}")  # Debugging
+
+    return render_template("farmer_checkout.html", purchases=purchases, products=products)
+
+
+
+
 @checkout_bp.route('/confirmation', methods=['GET', 'POST'])
 def confirmation():
     """Display the order confirmation page and handle order confirmation."""
