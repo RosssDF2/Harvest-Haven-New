@@ -10,36 +10,22 @@ class EnhancedDatabaseManager:
         self.db_name = db_name
 
     def initialize_database(self):
-        """Initialize the database with default values."""
+        """Initialize the database ONLY if it's empty to prevent resetting registrations."""
         with shelve.open(self.db_name, writeback=True) as db:
-            # Default users
             if "users" not in db:
                 db["users"] = {
-                    "customer1": {
-                        "name": "Customer 1",
-                        "email": "customer1@example.com",
-                        "role": "customer",
-                        "points": 100,
-                        "balance": 200.0,
-                        "password": "customer123",
-                    },
-                    "farmer1": {
-                        "name": "Farmer 1",
-                        "email": "farmer1@example.com",
-                        "role": "farmer",
-                        "points": 200,
-                        "balance": 500.0,
-                        "password": "farmer123",
-                    },
-                    "farmer2": {
-                        "name": "Farmer 2",
-                        "email": "farmer2@example.com",
-                        "role": "farmer",
-                        "points": 150,
-                        "balance": 300.0,
-                        "password": "farmer123",
-                    },
+                    "customer1": {"name": "Customer 1", "role": "customer", "points": 1000, "balance": 200.0,
+                                  "password": "customer123"},
+                    "farmer1": {"name": "Farmer 1", "role": "farmer", "points": 200, "balance": 500.0,
+                                "password": "farmer123"},
+                    "farmer2": {"name": "Farmer 2", "role": "farmer", "points": 150, "balance": 300.0,
+                                "password": "farmer123"},
                 }
+
+            if "farmers_registered" not in db:  # ✅ This prevents overwriting the registrations
+                db["farmers_registered"] = {}
+
+            print("Database initialized without resetting existing values.")
 
             # Default products
             if "products" not in db:
@@ -115,6 +101,22 @@ class EnhancedDatabaseManager:
         """Retrieve all users."""
         with shelve.open(self.db_name) as db:
             return db.get("users", {})
+
+    def register_farmer_for_future(self, farmer_id):
+        """Marks a farmer as registered for Plant a Future."""
+        with shelve.open(self.db_name, writeback=True) as db:
+            if "farmers_registered" not in db:
+                db["farmers_registered"] = {}  # Ensure the key exists
+            farmers_registered = db["farmers_registered"]
+
+            if farmer_id in farmers_registered:  # If already registered, do nothing
+                print(f"DEBUG: Farmer {farmer_id} is already registered!")
+                return
+
+            farmers_registered[farmer_id] = True  # Mark as registered
+            db["farmers_registered"] = farmers_registered
+            db.sync()  # Force save to shelve
+            print(f"DEBUG: Registered Farmer {farmer_id} Successfully!")
 
     def get_farmer_notifications(self, farmer_id):
         """Fetch pending return requests for the specified farmer."""
@@ -378,130 +380,121 @@ class EnhancedDatabaseManager:
 
         print("DEBUG: Return Transactions for User:", return_transactions.get(user_id, []))
 
+    def save_users(self, users):
+        """Save the updated users dictionary."""
+        with shelve.open(self.db_name, writeback=True) as db:
+            db["users"] = users
 
-def save_users(self, users):
-    """Save the updated users dictionary."""
-    with shelve.open(self.db_name, writeback=True) as db:
-        db["users"] = users
+    def adjust_user_points(self, user_id, points_delta):
+        """
+        Adjust the user's points by adding or deducting points.
 
+        :param user_id: ID of the user
+        :param points_delta: Points to adjust (positive to add, negative to deduct)
+        :raises ValueError: If the user does not exist or insufficient points
+        """
+        with shelve.open(self.db_name, writeback=True) as db:
+            users = db.get("users", {})
+            user = users.get(user_id)
 
-def adjust_user_points(self, user_id, points_delta):
-    """
-    Adjust the user's points by adding or deducting points.
+            if not user:
+                raise ValueError(f"User with ID '{user_id}' not found.")
 
-    :param user_id: ID of the user
-    :param points_delta: Points to adjust (positive to add, negative to deduct)
-    :raises ValueError: If the user does not exist or insufficient points
-    """
-    with shelve.open(self.db_name, writeback=True) as db:
-        users = db.get("users", {})
-        user = users.get(user_id)
+            new_points = user.get("points", 0) + points_delta
 
-        if not user:
-            raise ValueError(f"User with ID '{user_id}' not found.")
+            if new_points < 0:
+                raise ValueError("Insufficient points for this transaction.")
 
-        new_points = user.get("points", 0) + points_delta
+            user["points"] = new_points
+            users[user_id] = user
+            db["users"] = users
 
-        if new_points < 0:
-            raise ValueError("Insufficient points for this transaction.")
+    def submit_report(self, user_id, report_content, category):
+        """Submit a report and save it to the database."""
+        report_id = self.generate_report_id()
 
-        user["points"] = new_points
-        users[user_id] = user
-        db["users"] = users
-
-
-def submit_report(self, user_id, report_content, category):
-    """Submit a report and save it to the database."""
-    report_id = self.generate_report_id()
-
-    report = {
-        "user_id": user_id,
-        "content": report_content,
-        "category": category,
-        "status": "pending",
-        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-    }
-
-    with shelve.open(self.db_name, writeback=True) as db:
-        reports = db.get("reports", {})
-        reports[report_id] = report
-        db["reports"] = reports
-
-    print(f"Report submitted with ID: {report_id}")
-    return report_id
-
-
-def generate_report_id(self):
-    """Generate a unique report ID."""
-    with shelve.open(self.db_name) as db:
-        reports = db.get("reports", {})
-        return len(reports) + 1
-
-
-def get_reports(self, user_id=None, category=None):
-    """Retrieve all reports, optionally filtered by user or category."""
-    with shelve.open(self.db_name) as db:
-        reports = db.get("reports", {})
-
-    if user_id:
-        reports = {k: v for k, v in reports.items() if v["user_id"] == user_id}
-
-    if category:
-        reports = {k: v for k, v in reports.items() if v["category"] == category}
-
-    return reports
-
-
-def update_report_status(self, report_id, new_status):
-    """Update the status of a report."""
-    if new_status not in ["pending", "resolved", "closed"]:
-        raise ValueError("Invalid status. Must be 'pending', 'resolved', or 'closed'.")
-
-    with shelve.open(self.db_name, writeback=True) as db:
-        reports = db.get("reports", {})
-        if report_id in reports:
-            reports[report_id]["status"] = new_status
-            db["reports"] = reports
-            print(f"Updated report {report_id} to status '{new_status}'")
-            return reports[report_id]
-
-
-def save_products(self, products):
-    """Save the updated products dictionary."""
-    with shelve.open(self.db_name, writeback=True) as db:
-        db["products"] = products
-
-
-def add_order(self, farmer_id, buyer_name, product_name, quantity, price):
-    """Store order details under the respective farmer."""
-    with shelve.open(self.db_name, writeback=True) as db:
-        orders = db.setdefault("orders", {})  # Ensure "orders" key exists
-        order_id = len([o for v in orders.values() for o in v]) + 1  # Generate unique order ID
-
-        order = {
-            "order_id": order_id,
-            "farmer_id": farmer_id,
-            "buyer_name": buyer_name,
-            "product_name": product_name,
-            "quantity": quantity,
-            "price": price,
-            "status": "Pending",
-            "created_at": datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S'),
+        report = {
+            "user_id": user_id,
+            "content": report_content,
+            "category": category,
+            "status": "pending",
+            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         }
 
-        # Store the order under the farmer's ID
-        orders.setdefault(farmer_id, []).append(order)
+        with shelve.open(self.db_name, writeback=True) as db:
+            reports = db.get("reports", {})
+            reports[report_id] = report
+            db["reports"] = reports
 
-        db["orders"] = orders  # Save changes
+        print(f"Report submitted with ID: {report_id}")
+        return report_id
 
+    def generate_report_id(self):
+        """Generate a unique report ID."""
+        with shelve.open(self.db_name) as db:
+            reports = db.get("reports", {})
+            return len(reports) + 1
 
-def get_farmer_orders(self, farmer_id):
-    """Retrieve all orders for a given farmer."""
-    with shelve.open(self.db_name) as db:
-        orders = db.get("orders", {})  # Ensure "orders" key exists
-        farmer_orders = orders.get(farmer_id, [])
-        print(f"DEBUG: Orders fetched for farmer {farmer_id}: {farmer_orders}")  # Debugging
-        return farmer_orders  # Return orders for the specific farmer
+    def get_reports(self, user_id=None, category=None):
+        """Retrieve all reports, optionally filtered by user or category."""
+        with shelve.open(self.db_name) as db:
+            reports = db.get("reports", {})
+
+        if user_id:
+            reports = {k: v for k, v in reports.items() if v["user_id"] == user_id}
+
+        if category:
+            reports = {k: v for k, v in reports.items() if v["category"] == category}
+
+        return reports
+
+    def update_report_status(self, report_id, new_status):
+        """Update the status of a report."""
+        if new_status not in ["pending", "resolved", "closed"]:
+            raise ValueError("Invalid status. Must be 'pending', 'resolved', or 'closed'.")
+
+        with shelve.open(self.db_name, writeback=True) as db:
+            reports = db.get("reports", {})
+            if report_id in reports:
+                reports[report_id]["status"] = new_status
+                db["reports"] = reports
+                print(f"Updated report {report_id} to status '{new_status}'")
+                return reports[report_id]
+
+    def save_products(self, products):
+        """Save the updated products dictionary."""
+        with shelve.open(self.db_name, writeback=True) as db:
+            db["products"] = products
+
+    def add_order(self, farmer_id, buyer_name, product_name, quantity, price):
+        """Store order details under the respective farmer."""
+        with shelve.open(self.db_name, writeback=True) as db:
+            orders = db.setdefault("orders", {})  # Ensure "orders" key exists
+            order_id = len([o for v in orders.values() for o in v]) + 1  # Generate unique order ID
+
+            order = {
+                "order_id": order_id,
+                "farmer_id": farmer_id,
+                "buyer_name": buyer_name,
+                "product_name": product_name,
+                "quantity": quantity,
+                "price": price,
+                "status": "Pending",
+                "created_at": datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S'),
+            }
+
+            # Store the order under the farmer's ID
+            orders.setdefault(farmer_id, []).append(order)
+
+            db["orders"] = orders  # Save changes
+
+    def get_farmer_orders(self, farmer_id):
+        """Retrieve all orders for a given farmer."""
+        with shelve.open(self.db_name) as db:
+            orders = db.get("orders", {})  # Ensure "orders" key exists
+            farmer_orders = orders.get(farmer_id, [])
+            print(f"DEBUG: Orders fetched for farmer {farmer_id}: {farmer_orders}")  # Debugging
+            return farmer_orders  # Return orders for the specific farmer
 
     def update_device_status(self, device_id, status):
         """Updates the status of an IoT device."""
@@ -565,7 +558,37 @@ def get_farmer_orders(self, farmer_id):
             db["iot_devices"] = iot_devices  # Save to database
             return {"message": f"IoT Device {device_id} registered successfully!"}
 
+    def add_discounted_item(self, item_id, name, price, stock, days_until_expiry):
+        """Add a new discounted item with an expiry date."""
+        with shelve.open(self.db_name, writeback=True) as db:
+            discounted_items = db.setdefault("discounted_items", {})
+            discounted_items[item_id] = {
+                "name": name,
+                "price": price,
+                "stock": stock,
+                "expiry_date": (datetime.now() + timedelta(days=days_until_expiry)).strftime("%Y-%m-%d"),
+            }
+            db["discounted_items"] = discounted_items
 
+    def get_valid_discounted_items(self):
+        """Retrieve only valid (non-expired) discounted items."""
+        with shelve.open(self.db_name, writeback=True) as db:
+            discounted_items = db.get("discounted_items", {})
+            today = datetime.now().strftime("%Y-%m-%d")
 
+            valid_items = {
+                item_id: item for item_id, item in discounted_items.items()
+                if item["expiry_date"] >= today
+            }
+
+            # Optionally remove expired items
+            db["discounted_items"] = valid_items
+
+            return valid_items
+
+    def get_discounted_items(self):
+        """Retrieve all discounted items."""
+        with shelve.open(self.db_name) as db:
+            return db.get("discounted_items", {})
 
 
