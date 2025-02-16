@@ -59,35 +59,37 @@
     </div>
 
     <!-- Order Summary Section -->
-    <div class="card mb-4">
-        <div class="card-header bg-success text-white">Order Summary</div>
-        <div class="card-body">
-            <table class="table">
-                <thead class="table-success">
-                    <tr>
-                        <th>Product</th>
-                        <th>Quantity</th>
-                        <th>Price</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for item in cart_items %}
-                    <tr>
-                        <td>{{ item.name }}</td>
-                        <td>{{ item.quantity }}</td>
-                        <td>${{ item.price * item.quantity }}</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-                <tfoot>
-                    <tr>
-                        <td colspan="2"><strong>Total</strong></td>
-                        <td>${{ total }}</td>
-                    </tr>
-                </tfoot>
-            </table>
-        </div>
+   <!-- Order Summary Section -->
+<div class="card mb-4">
+    <div class="card-header bg-success text-white">Order Summary</div>
+    <div class="card-body">
+        <table class="table">
+            <thead class="table-success">
+                <tr>
+                    <th>Product</th>
+                    <th>Quantity</th>
+                    <th>Price</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in cart_items %}
+                <tr>
+                    <td>{{ item.name }}</td>
+                    <td>{{ item.quantity }}</td>
+                    <td>${{ item.price * item.quantity }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr>
+                    <td colspan="2"><strong>Total</strong></td>
+                    <td>${{ total }}</td>
+                </tr>
+            </tfoot>
+        </table>
     </div>
+</div>
+
 
 
 
