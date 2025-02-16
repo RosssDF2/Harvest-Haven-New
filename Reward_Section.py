@@ -778,6 +778,12 @@ def get_customer_trees():
             if "time_remaining" not in tree or tree["time_remaining"] > 0:
                 tree["time_remaining"] = max(10 - int(elapsed_time), 0)
 
+            # ✅ Ensure water and fertilize states persist
+            if "watered" not in tree:
+                tree["watered"] = False
+            if "fertilized" not in tree:
+                tree["fertilized"] = False
+
             # ✅ Save the new time_remaining back to the database (so it persists)
             db["ownership"][user_id]["plants"] = trees
 
@@ -787,6 +793,7 @@ def get_customer_trees():
                 tree["farmer_name"] = users.get(farmer_id, {}).get("name", "Unknown Farmer")
 
         return jsonify({"trees": trees})
+
 
 
 @reward_bp.route('/get_available_iot_devices', methods=['GET'])
@@ -1044,3 +1051,34 @@ def claim_tree(tree_id):
         db["iot_devices"] = iot_devices
 
         return jsonify({"message": f"Tree fully grown! You earned ${investment_return * 2}!", "new_balance": user["balance"]})
+
+# Reward_Section.py
+
+@reward_bp.route('/get_farmer_customers_trees', methods=['GET'])
+def get_farmer_customers_trees():
+    """Fetch all trees assigned to the logged-in farmer's IoT devices."""
+    if session.get('role') != 'farmer':
+        return jsonify({"error": "Access denied! Only farmers can view assigned plants."}), 403
+
+    farmer_id = session.get('user_id')
+    with shelve.open(db_manager.db_name) as db:
+        ownership = db.get("ownership", {})
+        trees = []
+
+        # Get all customer-planted trees linked to the farmer
+        for user_id, user_data in ownership.items():
+            for tree in user_data.get("plants", []):
+                if tree.get("farmer_id") == farmer_id:
+                    trees.append({
+                        "id": tree["id"],
+                        "type": tree["type"],
+                        "customer_name": db.get("users", {}).get(user_id, {}).get("name", "Unknown"),
+                        "device_id": tree["device_id"],
+                        "phase": tree["phase"],
+                        "health": tree["health"],
+                        "watered": tree["watered"],
+                        "fertilized": tree["fertilized"]
+                    })
+
+    return jsonify({"trees": trees})
+
