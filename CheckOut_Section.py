@@ -1,207 +1,124 @@
-from flask import Blueprint, render_template, request, redirect, url_for, session, flash
+from flask import Blueprint, render_template, request, session, flash, redirect, url_for
 from database import EnhancedDatabaseManager
 
+# Define the Blueprint for checkout
 checkout_bp = Blueprint('checkout', __name__)
+
+@checkout_bp.route('/checkout/update_cart/<int:product_id>', methods=['POST'])
+def update_cart(product_id):
+    """Update product quantity in the cart."""
+    try:
+        quantity = int(request.form.get('quantity', 1))  # Default to 1 if no quantity specified
+        if quantity < 1:
+            flash("Quantity must be at least 1.", "error")
+            return redirect(url_for('checkout.checkout'))
+    except ValueError:
+        flash("Invalid quantity entered.", "error")
+        return redirect(url_for('checkout.checkout'))
+
+    user = User(session.get('user_id'), session.get('role'))
+    user.update_cart_quantity(product_id, quantity)
+
+    flash("Cart updated.", "success")
+    return redirect(url_for('checkout.checkout'))
+
+@checkout_bp.route('/checkout/remove_from_cart/<int:product_id>', methods=['POST'])
+def remove_from_cart(product_id):
+    """Remove product from the cart."""
+    user = User(session.get('user_id'), session.get('role'))
+    user.remove_from_cart(product_id)
+
+    flash("Item removed from cart.", "success")
+    return redirect(url_for('checkout.checkout'))
+
+@checkout_bp.route('/process_checkout', methods=['POST'])
+def process_checkout():
+    """Handle the checkout process."""
+    name = request.form['name'].strip()
+    address = request.form['address'].strip()
+    card = request.form['card'].strip()
+    postal_code = request.form['postal_code'].strip()
+
+    if not name or not address or not card or not postal_code:
+        flash("All fields are required.", "error")
+        return redirect(url_for('checkout.checkout'))
+
+    if not card.isdigit() or len(card) < 12:
+        flash("Invalid card number.", "error")
+        return redirect(url_for('checkout.checkout'))
+
+    if not postal_code.isdigit():
+        flash("Postal code must be numeric.", "error")
+        return redirect(url_for('checkout.checkout'))
+
+    # Store the billing info in the session
+    session['billing_info'] = {
+        'name': name,
+        'address': address,
+        'card': card,
+        'postal_code': postal_code
+    }
+
+    # Example: save order to database, clear the cart, etc.
+    session['cart'] = []  # Empty cart after checkout
+    flash("Checkout successful!", "success")
+    return redirect(url_for('checkout.confirmation'))  # Redirect to the confirmation page
+
+@checkout_bp.route('/')
+def checkout():
+    """Display the checkout page."""
+    cart = session.get('cart', [])
+    total = sum(item['price'] * item['quantity'] for item in cart)
+    balance = session.get('balance', 0)  # Ensure balance is retrieved from session
+    return render_template('customer_checkout.html', cart_items=cart, total=total, balance=balance)
+
+@checkout_bp.route('/confirmation')
+def confirmation():
+    """Display the confirmation page after checkout."""
+    billing_info = session.get('billing_info', {})
+    return render_template('customer_confirmation.html', billing_info=billing_info)
 
 class User:
     """Represents a user and their actions."""
+
     def __init__(self, user_id, role):
         self.user_id = user_id
         self.role = role
         self.cart = session.get('cart', [])
-        self.db_manager = EnhancedDatabaseManager()
 
-    def get_balance(self):
-        """Retrieve the user's balance."""
-        return self.db_manager.get_users().get(self.user_id, {}).get("balance", 0)
+    def add_to_cart(self, product_id, quantity):
+        """Add a product to the user's cart."""
+        if quantity < 1:
+            flash("Quantity must be at least 1.", "error")
+            return
 
-    def adjust_balance(self, amount):
-        """Adjust the user's balance."""
-        self.db_manager.adjust_user_balance(self.user_id, amount)
+        cart = session.get('cart', [])
+        existing_item = next((item for item in cart if item['id'] == product_id), None)
 
-    def clear_cart(self):
-        """Clear the user's cart."""
-        session['cart'] = []
+        if existing_item:
+            existing_item['quantity'] += quantity
+        else:
+            db_manager = EnhancedDatabaseManager()  # Make sure to instantiate the database manager
+            product = db_manager.get_product_by_id(product_id)  # Assuming you have a method to fetch product by ID
+            cart.append({'id': product_id, 'name': product['name'], 'price': product['price'], 'quantity': quantity})
 
-    def get_nav_options(self):
-        """Retrieve navigation options based on the user's role."""
-        return self.db_manager.get_nav_options(self.role)
+        session['cart'] = cart
 
-    def get_ownership(self):
-        """Retrieve the user's ownership information."""
-        return self.db_manager.get_ownership(self.user_id)
+    def remove_from_cart(self, product_id):
+        """Remove a product from the user's cart."""
+        cart = session.get('cart', [])
+        cart = [item for item in cart if item['id'] != product_id]
+        session['cart'] = cart
 
-    def save_ownership(self, ownership):
-        """Save updated ownership data."""
-        self.db_manager.save_ownership(self.user_id, ownership)
+    def update_cart_quantity(self, product_id, quantity):
+        """Update the quantity of a product in the cart."""
+        if quantity < 1:
+            flash("Quantity must be at least 1.", "error")
+            return
 
-
-class CheckoutManager:
-    """Handles checkout and cart-related operations."""
-    def __init__(self):
-        self.db_manager = EnhancedDatabaseManager()
-
-    def calculate_total(self, cart_items):
-        """Calculate the total cost of items in the cart."""
-        return sum(item['price'] * item['quantity'] for item in cart_items)
-
-    def process_cart(self, user, cart_items, total):
-        """Process the checkout and update inventory and ownership."""
-        ownership = user.get_ownership()
-
-        for item in cart_items:
-            for _ in range(item['quantity']):
-                ownership["products"].append(item['id'])  # Add product IDs to ownership
-
-            # Log the transaction
-            self.db_manager.add_transaction(
-                user_id=user.user_id,
-                product_name=item['name'],
-                amount=item['price'] * item['quantity'],
-                quantity=item['quantity'],
-            )
-
-        # Save updated ownership
-        user.save_ownership(ownership)
-
-        # Update inventory
-        products = self.db_manager.get_products()
-        for item in cart_items:
-            if item['id'] in products:
-                products[item['id']]['quantity'] -= item['quantity']
-        self.db_manager.save_products(products)
-
-
-# Routes and logic
-@checkout_bp.route('/')
-def checkout():
-    """Display the customer's cart for checkout."""
-    if session.get('role') != 'customer':
-        flash("Access denied! Only customers can checkout.", "error")
-        return redirect(url_for('profile.profile'))
-
-    user = User(session.get('user_id'), session.get('role'))
-    total = CheckoutManager().calculate_total(user.cart)
-    user_balance = round(user.get_balance(), 2)
-
-    return render_template(
-        "customer_checkout.html",
-        cart_items=user.cart,
-        total=total,
-        user_balance=user_balance,
-        nav_options=user.get_nav_options(),
-    )
-
-
-@checkout_bp.route('/process_checkout', methods=['POST'])
-def process_checkout():
-    """Process the customer's checkout."""
-    user = User(session.get('user_id'), session.get('role'))
-
-    if user.role != 'customer':
-        flash("Unauthorized action.", "error")
-        return redirect(url_for('checkout.checkout'))
-
-    cart_items = user.cart
-    total = CheckoutManager().calculate_total(cart_items)
-
-    if user.get_balance() < total:
-        flash("Insufficient balance for checkout.", "error")
-        return redirect(url_for('checkout.checkout'))
-
-    # Store billing info from the form
-    billing_info = {
-        "name": request.form.get("name"),
-        "billing_address": request.form.get("address"),
-        "card_number": request.form.get("card")[-4:],  # Save only the last 4 digits for security
-        "postal_code": request.form.get("postal_code"),
-    }
-    session['billing_info'] = billing_info
-
-    # Adjust balance and process the cart
-    user.adjust_balance(-total)
-    CheckoutManager().process_cart(user, cart_items, total)
-
-    # Redirect to confirmation page with session data
-    return redirect(url_for('checkout.confirmation'))
-
-
-
-@checkout_bp.route('/add_to_cart_discounted/<int:item_id>', methods=['POST'])
-def add_to_cart_discounted(item_id):
-    """Add a discounted product to the customer's cart."""
-    user = User(session.get('user_id'), session.get('role'))
-    if user.role != 'customer':
-        flash("Access denied! Only customers can add to cart.", "error")
-        return redirect(url_for('discounted.home'))
-
-    quantity = int(request.form.get('quantity', 1))
-    item = user.db_manager.get_all_items().get(item_id)
-
-    if not item:
-        flash("Product not found.", "error")
-        return redirect(url_for('discounted.home'))
-
-    if item['stock'] < quantity:
-        flash("Insufficient stock available.", "error")
-        return redirect(url_for('discounted.home'))
-
-    # Add the item to the user's cart
-    user.cart.append({
-        "id": item_id,
-        "name": item['name'],
-        "price": item['price'],
-        "quantity": quantity,
-        "type": "discounted",
-    })
-    session['cart'] = user.cart
-
-    flash(f"'{item['name']}' added to cart!", "success")
-    return redirect(url_for('discounted.home'))
-
-
-@checkout_bp.route('/farmer_purchases')
-def farmer_purchases():
-    """Allow farmers to view customer purchases."""
-    if session.get('role') != 'farmer':
-        flash("Access denied! Only farmers can view this page.", "error")
-        return redirect(url_for('profile.profile'))
-
-    db_manager = EnhancedDatabaseManager()  # ✅ Ensure db_manager is initialized
-
-    user = User(session.get('user_id'), session.get('role'))
-    purchases = db_manager.get_farmer_orders(user.user_id)  # ✅ Retrieve farmer's orders
-    products = db_manager.get_products()  # ✅ Retrieve all products
-
-    print(f"DEBUG: Purchases for farmer {user.user_id}: {purchases}")  # Debugging
-
-    return render_template("farmer_checkout.html", purchases=purchases, products=products)
-
-
-
-
-@checkout_bp.route('/confirmation', methods=['GET', 'POST'])
-def confirmation():
-    """Display the order confirmation page and handle order confirmation."""
-    if session.get('role') != 'customer':
-        flash("Access denied! Only customers can access this page.", "error")
-        return redirect(url_for('profile.profile'))
-
-    # Retrieve data from session
-    cart_items = session.get('cart', [])
-    billing_info = session.get('billing_info', {})
-    total = sum(item['price'] * item['quantity'] for item in cart_items)
-
-    if request.method == 'POST':
-        # Process order confirmation
-        session['cart'] = []  # Clear the cart
-        session.pop('billing_info', None)  # Clear billing info
-        flash("Thank you for your order! It has been successfully placed.", "success")
-        return redirect(url_for('products.home'))  # Redirect to products page
-
-    return render_template(
-        "customer_confirmation.html",
-        cart_items=cart_items,
-        billing_info=billing_info,
-        total=total,
-    )
+        cart = session.get('cart', [])
+        for item in cart:
+            if item['id'] == product_id:
+                item['quantity'] = quantity
+                break
+        session['cart'] = cart
