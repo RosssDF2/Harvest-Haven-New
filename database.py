@@ -503,4 +503,69 @@ def get_farmer_orders(self, farmer_id):
         print(f"DEBUG: Orders fetched for farmer {farmer_id}: {farmer_orders}")  # Debugging
         return farmer_orders  # Return orders for the specific farmer
 
+    def update_device_status(self, device_id, status):
+        """Updates the status of an IoT device."""
+        with shelve.open(self.db_name, writeback=True) as db:
+            if device_id in db.get("iot_devices", {}):
+                db["iot_devices"][device_id]["status"] = status
+
+    def move_plant_to_another_device(self, plant_id, farmer_id):
+        """Moves a plant to another available IoT device under the same farmer."""
+        with shelve.open(self.db_name, writeback=True) as db:
+            available_devices = [
+                device_id for device_id, device in db.get("iot_devices", {}).items()
+                if device["farmer_id"] == farmer_id and device["status"] == "Active"
+            ]
+            if available_devices:
+                new_device_id = available_devices[0]  # Move to the first available device
+                db["plants"][plant_id]["device_id"] = new_device_id
+                return new_device_id
+            return None
+
+    def log_failure(self, device_id, failure_type):
+        """Logs a failure event for an IoT device."""
+        with shelve.open(self.db_name, writeback=True) as db:
+            failure_logs = db.setdefault("failures", {})
+            failure_logs[device_id] = {
+                "failure_type": failure_type,
+                "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "status": "Pending"
+            }
+            db["failures"] = failure_logs
+
+    def check_and_refund_if_plant_dies(self, plant_id):
+        """Checks if a plant has died and refunds the user if necessary."""
+        with shelve.open(self.db_name, writeback=True) as db:
+            plants = db.get("plants", {})
+            users = db.get("users", {})
+            if plant_id in plants and plants[plant_id]["status"] == "Dead":
+                user_id = plants[plant_id]["user_id"]
+                investment = plants[plant_id]["investment"]
+                users[user_id]["balance"] += investment  # Refund the user
+                del plants[plant_id]  # Remove the dead plant
+                db["plants"] = plants
+                db["users"] = users
+
+    def register_iot_device(self, farmer_id, device_id):
+        """Registers an IoT device to a farmer."""
+        with shelve.open(self.db_name, writeback=True) as db:
+            iot_devices = db.setdefault("iot_devices", {})
+
+            # Ensure the farmer exists
+            users = db.get("users", {})
+            if farmer_id not in users or users[farmer_id]["role"] != "farmer":
+                return {"error": "Farmer does not exist or is not a valid farmer."}
+
+            # Store the IoT device under the farmer's ID
+            iot_devices[device_id] = {
+                "farmer_id": farmer_id,
+                "status": "Active",
+                "assigned_user": None  # Ensure device starts unassigned
+            }
+            db["iot_devices"] = iot_devices  # Save to database
+            return {"message": f"IoT Device {device_id} registered successfully!"}
+
+
+
+
 
