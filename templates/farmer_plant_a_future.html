@@ -7,6 +7,146 @@
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script>
+       document.addEventListener("DOMContentLoaded", function () {
+    checkFarmerRegistration(); // ✅ Ensure registration status is checked first
+    loadIoTDevices(); // ✅ Now IoT devices will also load on page load
+});
+
+function checkFarmerRegistration() {
+    fetch('/rewards/farmer/check_future_registration')
+    .then(response => response.json())
+    .then(data => {
+        console.log("DEBUG: Farmer Registration Status:", data);
+        const registerSection = document.getElementById('register-future');
+        const iotSection = document.getElementById('iot-registration');
+
+        if (data.registered) {
+            registerSection.style.display = 'none';  // ✅ Hide the button properly
+            iotSection.style.display = 'block';  // ✅ Show IoT registration
+        } else {
+            registerSection.style.display = 'block';  // ✅ Show the button
+            iotSection.style.display = 'none';  // ✅ Hide IoT registration
+        }
+    })
+    .catch(error => console.error('Error checking farmer registration:', error));
+}
+
+function registerForFuture() {
+    fetch('/rewards/farmer/register_future', {
+        method: 'POST'
+    })
+    .then(response => response.json())
+    .then(data => {
+        console.log("Register Future Response:", data);
+        alert(data.message);
+        checkFarmerRegistration(); // ✅ Immediately update UI after registration
+    })
+    .catch(error => console.error('Error registering for Plant a Future:', error));
+}
+
+
+
+function registerIoTDevice() {
+    const deviceId = document.getElementById('device-id').value.trim();
+
+    console.log("Registering Device:", deviceId); // ✅ Debugging Log
+
+    if (!/^\d{12}$/.test(deviceId)) {
+        alert("Device ID must be exactly 12 digits.");
+        return;
+    }
+
+    fetch('/rewards/farmer/register_iot_device', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: `device_id=${deviceId}`
+    })
+    .then(response => response.json())
+    .then(data => {
+        console.log("Server Response:", data); // ✅ Debugging Log
+        alert(data.message || data.error);
+        document.getElementById('device-id').value = ''; // Clear input after success
+        loadIoTDevices(); // ✅ Refresh immediately after registering
+    })
+    .catch(error => console.error('Error registering device:', error));
+}
+
+
+
+
+
+
+function loadIoTDevices() {
+    fetch('/rewards/get_farmer_iot_devices')
+    .then(response => {
+        console.log("DEBUG: Response Status -", response.status); // ✅ Debugging Log
+        return response.json();
+    })
+    .then(data => {
+        console.log("DEBUG: IoT Devices Data:", data); // ✅ Debugging Log
+        if (data.error) {
+            console.error("Error fetching IoT devices:", data.error);
+            return;
+        }
+
+        const deviceContainer = document.getElementById('iot-devices');
+        deviceContainer.innerHTML = ''; // Clear existing devices
+
+        if (!data.devices || data.devices.length === 0) {
+            deviceContainer.innerHTML = "<p>No IoT devices registered yet.</p>";
+            return;
+        }
+
+        data.devices.forEach(device => {
+            const deviceBox = document.createElement('div');
+            deviceBox.className = "card mb-3";
+            deviceBox.innerHTML = `
+                <div class="card-body">
+                    <h5 class="card-title">Device ID: ${device.id}</h5>
+                    <p class="card-text">
+                        Status:
+                        <span class="text-${device.status === 'Active' ? 'success' : 'danger'}">
+                            ${device.status}
+                        </span>
+                    </p>
+                    <p class="card-text">Assigned to: ${device.assigned_user || "Available for Planting"}</p>
+                </div>
+            `;
+            deviceContainer.appendChild(deviceBox);
+        });
+    })
+    .catch(error => console.error('Error loading IoT devices:', error));
+}
+
+
+
+
+
+        function loadAvailableIoTDevices() {
+    const farmerId = document.getElementById('farmer-select').value;
+    if (!farmerId) return;
+
+    fetch(`/rewards/get_available_iot_devices?farmer_id=${farmerId}`)
+    .then(response => response.json())
+    .then(data => {
+        console.log("DEBUG: Received IoT Devices Data:", data);  // Debugging log
+        const deviceSelect = document.getElementById('iot-device-select');
+        deviceSelect.innerHTML = '<option value="">Select an IoT Device</option>';
+
+        if (data.devices.length === 0) {
+            console.log("No available IoT devices for selected farmer.");
+            return;
+        }
+
+        data.devices.forEach(device => {
+            deviceSelect.innerHTML += `<option value="${device.id}">${device.id} (Available)</option>`;
+        });
+    })
+    .catch(error => console.error('Error loading IoT devices:', error));
+}
+
+    </script>
 </head>
 <body class="bg-light">
 <!-- Header Section -->
@@ -41,64 +181,30 @@
     </div>
 </header>
 
-<main class="container">
-    <h1 class="text-success mb-4">Farmer's Field</h1>
 
-    <!-- Group Trees by Customer -->
-    {% for customer_id, customer_data in customers.items() %}
+<!-- Register for Plant a Future Button -->
+<!-- Register for Plant a Future Button -->
+<div id="register-future" class="text-center">
+    <button type="button" class="btn btn-primary" onclick="registerForFuture()">Register for Plant a Future</button>
+</div>
+
+<!-- IoT Device Registration (Hidden Initially) -->
+<div id="iot-registration" style="display: none;">
     <div class="card mb-4">
-        <div class="card-header bg-success text-white">
-            Customer: {{ customer_data.name }}
-        </div>
+        <div class="card-header bg-success text-white">Register a New IoT Device</div>
         <div class="card-body">
-            <p>Email: {{ customer_data.email }}</p>
-            <p>Balance: ${{ customer_data.balance }}</p>
-
-            <!-- Display each tree for this customer -->
-            {% for tree in customer_data.trees %}
-            <div class="card mb-3 {% if tree.phase == 'Dead' %}border-danger{% elif tree.watered and tree.fertilized %}border-success{% else %}border-secondary{% endif %}">
-                <div class="card-body">
-                    <h3 class="card-title">{{ tree.type }} - {{ tree.phase }}</h3>
-                    <p class="card-text">Health: {{ tree.health }}</p>
-                    <p class="card-text">Watered: {{ 'Yes' if tree.watered else 'No' }}</p>
-                    <p class="card-text">Fertilized: {{ 'Yes' if tree.fertilized else 'No' }}</p>
-
-                    {% if tree.phase == "Dead" %}
-                    <!-- Dead Tree Section -->
-                    <p class="text-danger">Reason for Death: {{ tree.kill_reason or 'No reason provided' }}</p>
-                    {% else %}
-                    <!-- Update Tree Phase -->
-                    <form method="POST" action="{{ url_for('rewards.update_tree_phase', tree_id=tree.id) }}" class="mb-3">
-                        <div class="mb-2">
-                            <label for="new-stage" class="form-label">Change Tree Stage:</label>
-                            <select name="new_stage" class="form-select" required>
-                                <option value="Seedling" {% if tree.phase == "Seedling" %}selected{% endif %}>Seedling</option>
-                                <option value="Plant" {% if tree.phase == "Plant" %}selected{% endif %}>Plant</option>
-                                <option value="Growing Tree" {% if tree.phase == "Growing Tree" %}selected{% endif %}>Growing Tree</option>
-                                <option value="Mature Tree" {% if tree.phase == "Mature Tree" %}selected{% endif %}>Mature Tree</option>
-                            </select>
-                        </div>
-                        <button type="submit" class="btn btn-primary">Update Stage</button>
-                    </form>
-
-                    <!-- Mark Tree as Dead -->
-                    <form method="POST" action="{{ url_for('rewards.mark_tree_dead', tree_id=tree.id) }}">
-                        <div class="mb-2">
-                            <label for="kill-reason" class="form-label">Reason for Killing:</label>
-                            <input type="text" name="kill_reason" class="form-control" placeholder="Enter reason" required>
-                        </div>
-                        <button type="submit" class="btn btn-danger">Mark as Dead</button>
-                    </form>
-                    {% endif %}
-                </div>
-            </div>
-            {% endfor %}
+            <label for="device-id" class="form-label">Enter a 12-digit IoT Device ID:</label>
+            <input type="text" id="device-id" class="form-control mb-2" maxlength="12" placeholder="Enter 12-digit ID" required>
+            <button type="button" class="btn btn-success" onclick="registerIoTDevice()">Register IoT Device</button>
         </div>
     </div>
-    {% endfor %}
-</main>
 
-<!-- Bootstrap JS -->
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js"></script>
+    <h3 class="text-primary">Your IoT Devices</h3>
+    <div id="iot-devices">
+        <!-- IoT Devices will be loaded here -->
+    </div>
+</div>
+
+</main>
 </body>
 </html>
