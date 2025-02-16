@@ -1,4 +1,4 @@
-    def add_discounted_item(self, item_id, name, price, stock, days_until_expiry):
+def add_discounted_item(self, item_id, name, price, stock, days_until_expiry):
         """Add a new discounted item with an expiry date."""
         with shelve.open(self.db_name, writeback=True) as db:
             discounted_items = db.setdefault("discounted_items", {})
