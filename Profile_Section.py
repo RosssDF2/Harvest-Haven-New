@@ -1,3 +1,4 @@
+
 from urllib.request import Request
 
 from flask import Blueprint, render_template, request, redirect, url_for, session, flash
@@ -6,6 +7,11 @@ import shelve
 
 profile_bp = Blueprint('profile', __name__)
 db_manager = EnhancedDatabaseManager()
+
+@profile_bp.route('/create', methods=['GET'])
+def create():
+    """Render the profile creation page."""
+    return render_template('profile_create.html')
 
 @profile_bp.route('/')
 def home():
