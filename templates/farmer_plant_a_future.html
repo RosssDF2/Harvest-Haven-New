@@ -11,6 +11,7 @@
        document.addEventListener("DOMContentLoaded", function () {
     checkFarmerRegistration(); // ✅ Ensure registration status is checked first
     loadIoTDevices(); // ✅ Now IoT devices will also load on page load
+     checkFarmerCustomerTrees();
 });
 
 function checkFarmerRegistration() {
@@ -79,12 +80,10 @@ function registerIoTDevice() {
 
 function loadIoTDevices() {
     fetch('/rewards/get_farmer_iot_devices')
-    .then(response => {
-        console.log("DEBUG: Response Status -", response.status); // ✅ Debugging Log
-        return response.json();
-    })
+    .then(response => response.json())
     .then(data => {
-        console.log("DEBUG: IoT Devices Data:", data); // ✅ Debugging Log
+        console.log("DEBUG: IoT Devices Data:", data);
+
         if (data.error) {
             console.error("Error fetching IoT devices:", data.error);
             return;
@@ -111,13 +110,24 @@ function loadIoTDevices() {
                         </span>
                     </p>
                     <p class="card-text">Assigned to: ${device.assigned_user || "Available for Planting"}</p>
+                    <div id="tree-container-${device.id}">
+                        <!-- Customer trees assigned to this IoT device will appear here -->
+                    </div>
                 </div>
             `;
             deviceContainer.appendChild(deviceBox);
         });
+
+        // ✅ Only load customer-planted trees once
+        if (!window.customerTreesLoaded) {
+            window.customerTreesLoaded = true;
+            loadFarmerCustomerTrees();
+        }
     })
     .catch(error => console.error('Error loading IoT devices:', error));
 }
+
+
 
 
 
@@ -145,6 +155,129 @@ function loadIoTDevices() {
     })
     .catch(error => console.error('Error loading IoT devices:', error));
 }
+
+        document.addEventListener("DOMContentLoaded", function () {
+    checkFarmerCustomerTrees();
+});
+
+function checkFarmerCustomerTrees() {
+    fetch('/rewards/get_farmer_customers_trees')
+    .then(response => response.json())
+    .then(data => {
+        console.log("DEBUG: Farmer's Plants Data:", data);
+
+        if (data.trees && data.trees.length > 0) {
+            loadFarmerCustomerTrees(data.trees); // ✅ Load customer trees directly
+        }
+    })
+    .catch(error => console.error('Error checking farmer plant registration:', error));
+}
+
+
+
+function loadFarmerCustomerTrees() {
+    fetch('/rewards/get_farmer_customers_trees')
+    .then(response => response.json())
+    .then(data => {
+        console.log("DEBUG: Farmer’s Customer-Planted Trees Data:", data);
+
+        if (!data.trees || data.trees.length === 0) {
+            console.log("No customer-planted trees assigned to this farmer.");
+            return;
+        }
+
+        data.trees.forEach(tree => {
+            // Find the corresponding IoT device container
+            const treeContainer = document.getElementById(`tree-container-${tree.device_id}`);
+
+            if (!treeContainer) {
+                console.warn(`IoT Device ${tree.device_id} container not found.`);
+                return;
+            }
+
+            // ✅ Check if tree already exists to prevent duplicates
+            if (document.getElementById(`tree-box-${tree.id}`)) {
+                console.warn(`Tree ${tree.id} already exists, skipping.`);
+                return;
+            }
+
+            // ✅ Assign plant images based on phase
+            const phaseImages = {
+                "Seedling": "/static/uploads/seedling.png",
+                "Plant": "/static/uploads/plant.png",
+                "Growing Tree": "/static/uploads/growing_tree.png",
+                "Mature Tree": "/static/uploads/mature_tree.png"
+            };
+            const plantImage = phaseImages[tree.phase] || phaseImages["Seedling"];
+
+            const treeBox = document.createElement('div');
+            treeBox.className = "card mt-2 p-2 border-secondary position-relative";
+            treeBox.setAttribute("id", `tree-box-${tree.id}`);
+
+            treeBox.innerHTML = `
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6>${tree.type} - ${tree.phase}</h6>
+                        <p class="card-text"><strong>Customer:</strong> ${tree.customer_name}</p>
+                        <p class="card-text"><strong>Health:</strong> ${tree.health}%</p>
+                        <p class="card-text"><strong>Watered:</strong> ${tree.watered ? "✅ Yes" : "❌ No"}</p>
+                        <p class="card-text"><strong>Fertilized:</strong> ${tree.fertilized ? "✅ Yes" : "❌ No"}</p>
+                    </div>
+                    <!-- ✅ Plant Image on the Right Side -->
+                    <img id="plant-image-${tree.id}" src="${plantImage}" alt="Plant Stage"
+                        style="width: 80px; height: auto; border-radius: 8px;">
+                </div>
+            `;
+
+            treeContainer.appendChild(treeBox);
+        });
+    })
+    .catch(error => console.error('Error loading farmer customer trees:', error));
+}
+
+
+
+function createCustomerTreeBox(treeId, treeType, customerName, deviceId, health, phase, timeRemaining, watered, fertilized) {
+    const plantContainer = document.getElementById('farmer-plants');
+
+    if (!plantContainer) {
+        console.error("ERROR: 'farmer-plants' container not found.");
+        return;
+    }
+
+    const phaseImages = {
+        "Seedling": "/static/uploads/seedling.png",
+        "Plant": "/static/uploads/plant.png",
+        "Growing Tree": "/static/uploads/growing_tree.png",
+        "Mature Tree": "/static/uploads/mature_tree.png"
+    };
+    const plantImage = phaseImages[phase] || phaseImages["Seedling"];
+
+    const treeBox = document.createElement('div');
+    treeBox.className = "card mb-3 p-3 border-dark position-relative";
+    treeBox.setAttribute("id", `tree-box-${treeId}`);
+
+    treeBox.innerHTML = `
+        <div class="card-body">
+            <h5 class="card-title">${treeType} - <span id="phase-${treeId}">${phase}</span></h5>
+            <p class="card-text"><strong>Customer:</strong> ${customerName}</p>
+            <p class="card-text"><strong>Device ID:</strong> ${deviceId}</p>
+            <p class="card-text"><strong>Health:</strong> ${health}%</p>
+            <p class="card-text"><strong>Time Remaining:</strong> ${timeRemaining} sec</p>
+
+            <div class="progress mb-2">
+                <div id="progress-${treeId}" class="progress-bar bg-success" style="width: ${(timeRemaining / 10) * 100}%;"></div>
+            </div>
+
+            <!-- Image representing plant growth -->
+            <img id="plant-image-${treeId}" src="${plantImage}" alt="Plant Stage"
+                style="position: absolute; top: 10px; right: 10px; width: 100px; height: auto;">
+        </div>
+    `;
+
+    plantContainer.appendChild(treeBox);
+}
+
 
     </script>
 </head>
@@ -188,10 +321,10 @@ function loadIoTDevices() {
     <button type="button" class="btn btn-primary" onclick="registerForFuture()">Register for Plant a Future</button>
 </div>
 
-<!-- IoT Device Registration (Hidden Initially) -->
+<!-- IoT Device Registration -->
 <div id="iot-registration" style="display: none;">
     <div class="card mb-4">
-        <div class="card-header bg-success text-white">Register a New IoT Device</div>
+        <div class="card-header bg-success text-white">Manage IoT Devices & Assigned Plants</div>
         <div class="card-body">
             <label for="device-id" class="form-label">Enter a 12-digit IoT Device ID:</label>
             <input type="text" id="device-id" class="form-control mb-2" maxlength="12" placeholder="Enter 12-digit ID" required>
@@ -199,12 +332,13 @@ function loadIoTDevices() {
         </div>
     </div>
 
-    <h3 class="text-primary">Your IoT Devices</h3>
+    <h3 class="text-primary">Your IoT Devices & Assigned Trees</h3>
     <div id="iot-devices">
-        <!-- IoT Devices will be loaded here -->
+        <!-- IoT Devices with customer-planted trees will be loaded here -->
     </div>
 </div>
 
-</main>
+
+
 </body>
 </html>
