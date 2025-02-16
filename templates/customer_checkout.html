@@ -45,51 +45,69 @@
     <h1 class="text-success mb-4">Checkout</h1>
 
     <!-- Cart Items -->
+    <h3>Your Cart</h3>
     <ul class="list-group mb-4">
         {% for item in cart_items %}
         <li class="list-group-item d-flex justify-content-between align-items-center">
             {{ item.name }} - ${{ item.price }} x {{ item.quantity }}
             <span class="fw-bold">${{ item.price * item.quantity }}</span>
+
+            <!-- Update Quantity Form -->
+            <form action="{{ url_for('checkout.update_cart', product_id=item.id) }}" method="POST" class="d-inline">
+                <input type="number" name="quantity" value="{{ item.quantity }}" min="1" required class="form-control w-auto d-inline">
+                <button type="submit" class="btn btn-sm btn-warning ms-2">Update</button>
+            </form>
+
+            <!-- Remove Item Form -->
+            <form action="{{ url_for('checkout.remove_from_cart', product_id=item.id) }}" method="POST" class="d-inline">
+                <button type="submit" class="btn btn-sm btn-danger ms-2">Remove</button>
+            </form>
         </li>
         {% endfor %}
     </ul>
+
     <p class="fs-5">Total: <span class="fw-bold text-success">${{ total }}</span></p>
     <p class="fs-5">Balance: <span class="fw-bold text-success">${{ user_balance }}</span></p>
 
     <!-- Checkout Form -->
-    <div class="card">
-        <div class="card-header bg-success text-white">Payment Details</div>
-        <div class="card-body">
-            <form method="POST" action="{{ url_for('checkout.process_checkout') }}">
-                <div class="mb-3">
-                    <label for="name" class="form-label">Name</label>
-                    <input type="text" id="name" name="name" class="form-control" placeholder="Enter your name" required>
-                </div>
-                <div class="mb-3">
-                    <label for="address" class="form-label">Address</label>
-                    <input type="text" id="address" name="address" class="form-control" placeholder="Enter your address" required>
-                </div>
-                <div class="mb-3">
-                    <label for="card" class="form-label">Card Details</label>
-                    <input type="text" id="card" name="card" class="form-control" placeholder="Enter your card number" required>
-                </div>
-                <div class="mb-3">
-                    <label for="card-name" class="form-label">Name on Card</label>
-                    <input type="text" id="card-name" name="card_name" class="form-control" placeholder="Enter name on card" required>
-                </div>
-                <div class="mb-3">
-                    <label for="cvv" class="form-label">CVV</label>
-                    <input type="text" id="cvv" name="cvv" class="form-control" placeholder="CVV" required>
-                </div>
-                <div class="mb-3">
-                    <label for="expiry-date" class="form-label">Expiry Date</label>
-                    <input type="text" id="expiry-date" name="expiry_date" class="form-control" placeholder="Expiry date (MM/YY)" required>
-                </div>
-                <!-- Checkout Button -->
-                <button type="submit" class="btn btn-success w-100">Checkout</button>
-            </form>
+    <form method="POST" action="{{ url_for('checkout.process_checkout') }}">
+        <div class="mb-3">
+            <label for="name" class="form-label">Name</label>
+            <input type="text" id="name" name="name" class="form-control" placeholder="Enter your name" required>
         </div>
-    </div>
+        <div class="mb-3">
+            <label for="address" class="form-label">Address</label>
+            <input type="text" id="address" name="address" class="form-control" placeholder="Enter your address" required>
+        </div>
+        <div class="mb-3">
+            <label for="postal_code" class="form-label">Postal Code</label>
+            <input type="text" id="postal_code" name="postal_code" class="form-control" placeholder="Enter your postal code" required>
+        </div>
+
+        <!-- Card Details Section -->
+        <fieldset class="border p-3">
+            <legend class="w-auto">Card Details</legend>
+            <div class="mb-3">
+                <label for="card" class="form-label">Card Number</label>
+                <input type="text" id="card" name="card" class="form-control" placeholder="Enter your card number" required>
+            </div>
+            <div class="mb-3">
+                <label for="card-name" class="form-label">Name on Card</label>
+                <input type="text" id="card-name" name="card_name" class="form-control" placeholder="Enter name on card" required>
+            </div>
+            <div class="mb-3">
+                <label for="cvv" class="form-label">CVV</label>
+                <input type="text" id="cvv" name="cvv" class="form-control" placeholder="CVV" required>
+            </div>
+            <div class="mb-3">
+                <label for="expiry-date" class="form-label">Expiry Date</label>
+                <input type="text" id="expiry-date" name="expiry_date" class="form-control" placeholder="Expiry date (MM/YY)" required>
+            </div>
+        </fieldset>
+
+        <!-- Checkout Button -->
+        <button type="submit" class="btn btn-success w-100">Checkout</button>
+    </form>
 </main>
 
 <!-- Bootstrap JS -->
