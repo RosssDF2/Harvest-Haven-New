@@ -44,7 +44,7 @@
 <main class="container">
     <div class="text-center mb-5">
         <h1 class="text-success">Thank You for Shopping with Us!</h1>
-        <p class="fs-5">Please review your order details below before confirming.</p>
+
     </div>
 
     <!-- Billing Details Section -->
@@ -89,10 +89,7 @@
         </div>
     </div>
 
-    <!-- Confirm Order Button -->
-    <form action="{{ url_for('checkout.confirmation') }}" method="POST" class="text-center">
-        <button type="submit" class="btn btn-success btn-lg w-50">Confirm Order</button>
-    </form>
+
 
     <div class="text-center mt-4">
         <a href="/products" class="btn btn-primary">Shop More</a>
