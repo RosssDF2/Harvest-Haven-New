@@ -1,6 +1,7 @@
 import os
 from flask import Blueprint, render_template, request, session, flash, redirect, url_for
 from werkzeug.utils import secure_filename
+from datetime import datetime
 from database import EnhancedDatabaseManager
 
 discounted_bp = Blueprint('discounted', __name__)
@@ -21,72 +22,60 @@ def allowed_file(filename):
 
 @discounted_bp.route('/', methods=['GET'])
 def home():
-    """Main discounted products page with optional filtering and search."""
+    """Main discounted products page with filtering and search."""
     user_role = session.get('role')
+    user_id = session.get('user_id')  # Get current logged-in user
     nav_options = db_manager.get_nav_options(user_role)
 
-    # Retrieve discounted items from the database
+    remove_expired_products()
     discounted_items = db_manager.get_all_items()
 
-    # Get filtering options from query parameters
+    # If the user is a farmer, only show their own products
+    if user_role == 'farmer':
+        discounted_items = {
+            item_id: item for item_id, item in discounted_items.items()
+            if item.get('owner_id') == user_id
+        }
+
     selected_category = request.args.get('category')
     search_query = request.args.get('search', '').strip().lower()
 
     if selected_category:
-        # Filter discounted items by category
         discounted_items = {
-            item_id: item
-            for item_id, item in discounted_items.items()
+            item_id: item for item_id, item in discounted_items.items()
             if item.get('category') == selected_category
         }
 
     if search_query:
-        # Filter discounted items by search query
         discounted_items = {
-            item_id: item
-            for item_id, item in discounted_items.items()
+            item_id: item for item_id, item in discounted_items.items()
             if search_query in item.get('name', '').lower()
         }
 
-    # Include item IDs for template rendering
     discounted_items_with_ids = [
-        {"id": item_id, **item_data}
-        for item_id, item_data in discounted_items.items()
+        {"id": item_id, **item_data} for item_id, item_data in discounted_items.items()
     ]
 
-    if user_role == 'customer':
-        return render_template(
-            "customer_discounted_products.html",
-            items=discounted_items_with_ids,
-            nav_options=nav_options,
-            selected_category=selected_category,
-            search_query=search_query
-        )
-    elif user_role == 'farmer':
-        return render_template(
-            "farmer_discounted_products.html",
-            items=discounted_items_with_ids,
-            nav_options=nav_options,
-        )
+    template = "customer_discounted_products.html" if user_role == 'customer' else "farmer_discounted_products.html"
+    return render_template(template, items=discounted_items_with_ids, nav_options=nav_options)
 
 
 @discounted_bp.route('/add_discounted', methods=['POST'])
 def add_discounted():
-    """Allow farmers to add discounted products with an image."""
+    """Allow farmers to add their own discounted products."""
+    user_id = session.get('user_id')
     if session.get('role') != 'farmer':
         flash("Access denied! Only farmers can add discounted products.", "error")
         return redirect(url_for('discounted.home'))
 
-    # Retrieve form data
     name = request.form.get('name')
     price = request.form.get('price')
     stock = request.form.get('stock')
     category = request.form.get('category')
-    expiry_date = request.form.get('expiry_date')  # New field
+    expiry_date = request.form.get('expiry_date')
     image = request.files.get('image')
 
-    # Validate inputs
-    if not name or not price or not stock or not category or not expiry_date or not image:
+    if not all([name, price, stock, category, expiry_date, image]):
         flash("All fields, including an image and expiry date, are required.", "error")
         return redirect(url_for('discounted.home'))
 
@@ -95,11 +84,9 @@ def add_discounted():
         return redirect(url_for('discounted.home'))
 
     try:
-        # Save the image
         filename = secure_filename(image.filename)
         image.save(os.path.join(UPLOAD_FOLDER, filename))
 
-        # Add the new discounted product to the database
         discounted_items = db_manager.get_all_items()
         item_id = max(discounted_items.keys(), default=0) + 1
         discounted_items[item_id] = {
@@ -107,24 +94,27 @@ def add_discounted():
             "price": float(price),
             "stock": int(stock),
             "category": category,
-            "expiry_date": expiry_date,  # New field
+            "expiry_date": expiry_date,
             "image_url": f"/static/uploads/{filename}",
+            "owner_id": user_id  # Store the farmer's user ID
         }
         db_manager.save_items(discounted_items)
 
         flash(f"Discounted product '{name}' added successfully!", "success")
     except Exception as e:
         flash(f"Error adding discounted product: {e}", "error")
+
     return redirect(url_for('discounted.home'))
+
 
 def remove_expired_products():
     """Automatically remove discounted products that have expired."""
     discounted_items = db_manager.get_all_items()
-    current_date = datetime.now().date()  # Get today's date
+    current_datetime = datetime.now()
 
     expired_items = [
         item_id for item_id, item in discounted_items.items()
-        if datetime.strptime(item.get("expiry_date", ""), "%Y-%m-%d").date() < current_date
+        if datetime.strptime(item.get("expiry_date", "")[:10], "%Y-%m-%d").date() < current_datetime.date()
     ]
 
     if expired_items:
@@ -134,68 +124,81 @@ def remove_expired_products():
         db_manager.save_items(discounted_items)
         print(f"Removed expired products: {expired_items}")
 
-@discounted_bp.route('/update_discounted/<int:item_id>', methods=['POST'])
-def update_discounted(item_id):
-    """Update discounted item details, including its image."""
-    discounted_items = db_manager.get_all_items()
-
-    if item_id not in discounted_items:
-        flash("Item not found.", "error")
-        return redirect(url_for('discounted.home'))
-
-    # Retrieve form inputs
-    name = request.form.get('name')
-    price = request.form.get('price')
-    stock = request.form.get('stock')
-    category = request.form.get('category')
-    expiry_date = request.form.get('expiry_date')  # New field
-    image = request.files.get('image')
-
-    if not name or not price or not stock or not category or not expiry_date:
-        flash("All fields (except image) are required.", "error")
-        return redirect(url_for('discounted.home'))
-
-    try:
-        # Update discounted item details
-        item = discounted_items[item_id]
-        item['name'] = name
-        item['price'] = float(price)
-        item['stock'] = int(stock)
-        item['category'] = category
-        item['expiry_date'] = expiry_date  # New field
-
-        # Save new image if provided
-        if image and allowed_file(image.filename):
-            filename = secure_filename(image.filename)
-            image.save(os.path.join(UPLOAD_FOLDER, filename))
-            item['image_url'] = f"/static/uploads/{filename}"
-
-        discounted_items[item_id] = item
-        db_manager.save_items(discounted_items)
-
-        flash(f"Discounted product '{name}' updated successfully!", "success")
-    except Exception as e:
-        flash(f"Error updating discounted product: {e}", "error")
-    return redirect(url_for('discounted.home'))
-
 
 @discounted_bp.route('/delete_discounted/<int:item_id>', methods=['POST'])
 def delete_discounted(item_id):
-    """Delete a discounted product."""
+    """Only allow the product owner to delete it."""
+    user_id = session.get('user_id')
+
     if session.get('role') != 'farmer':
         flash("Access denied! Only farmers can delete discounted products.", "error")
         return redirect(url_for('discounted.home'))
 
     discounted_items = db_manager.get_all_items()
-    if item_id in discounted_items:
-        del discounted_items[item_id]
-        db_manager.save_items(discounted_items)
-        flash("Discounted product deleted successfully!", "success")
-    else:
-        flash("Discounted product not found.", "error")
 
+    if item_id not in discounted_items:
+        flash("Product not found.", "error")
+        return redirect(url_for('discounted.home'))
+
+    if discounted_items[item_id].get("owner_id") != user_id:
+        flash("You can only delete your own products!", "error")
+        return redirect(url_for('discounted.home'))
+
+    del discounted_items[item_id]
+    db_manager.save_items(discounted_items)
+
+    flash("Discounted product deleted successfully!", "success")
     return redirect(url_for('discounted.home'))
 
+
+@discounted_bp.route('/update_discounted/<int:item_id>', methods=['POST'])
+def update_discounted(item_id):
+    """Only allow the product owner to update it."""
+    user_id = session.get('user_id')
+
+    if session.get('role') != 'farmer':
+        flash("Access denied! Only farmers can update discounted products.", "error")
+        return redirect(url_for('discounted.home'))
+
+    discounted_items = db_manager.get_all_items()
+
+    if item_id not in discounted_items:
+        flash("Product not found.", "error")
+        return redirect(url_for('discounted.home'))
+
+    if discounted_items[item_id].get("owner_id") != user_id:
+        flash("You can only update your own products!", "error")
+        return redirect(url_for('discounted.home'))
+
+    # Retrieve updated values from the form
+    price = request.form.get('price')
+    stock = request.form.get('stock')
+    expiry_date = request.form.get('expiry_date')
+    category = request.form.get('category')
+    image = request.files.get('image')
+
+    try:
+        if price:
+            discounted_items[item_id]['price'] = float(price)
+        if stock:
+            discounted_items[item_id]['stock'] = int(stock)
+        if expiry_date:
+            discounted_items[item_id]['expiry_date'] = expiry_date
+        if category:
+            discounted_items[item_id]['category'] = category
+
+        if image and allowed_file(image.filename):
+            filename = secure_filename(image.filename)
+            image.save(os.path.join(UPLOAD_FOLDER, filename))
+            discounted_items[item_id]['image_url'] = f"/static/uploads/{filename}"
+
+        db_manager.save_items(discounted_items)
+        flash("Product updated successfully!", "success")
+
+    except Exception as e:
+        flash(f"Error updating product: {e}", "error")
+
+    return redirect(url_for('discounted.home'))
 
 @discounted_bp.route('/buy_discounted/<int:item_id>', methods=['POST'])
 def buy_discounted(item_id):
