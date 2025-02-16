@@ -4,238 +4,579 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Plant a Future</title>
-    <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+    loadRegisteredFarmers(); // ✅ Load farmers first
+    loadCustomerTrees(); // ✅ Load existing trees when the page loads
+
+    document.getElementById('plant-tree-btn').addEventListener("click", plantTree);
+});
+
+
+
+
+function loadRegisteredFarmers() {
+            fetch('/rewards/get_registered_farmers')
+            .then(response => response.json())
+            .then(data => {
+                console.log("DEBUG: Registered Farmers Data:", data);
+                const farmerSelect = document.getElementById('farmer-select');
+                farmerSelect.innerHTML = '<option value="">Select a Registered Farmer</option>';
+
+                if (!data.farmers || data.farmers.length === 0) {
+                    console.warn("No registered farmers found.");
+                    farmerSelect.innerHTML = '<option value="">No Farmers Available</option>';
+                    return;
+                }
+
+                data.farmers.forEach(farmer => {
+                    const option = document.createElement('option');
+                    option.value = farmer.id;
+                    option.textContent = farmer.name;
+                    farmerSelect.appendChild(option);
+                });
+
+               farmerSelect.addEventListener("change", loadAvailableIoTDevices);
+
+            })
+            .catch(error => console.error('Error loading registered farmers:', error));
+        }
+
+        function loadAvailableIoTDevices() {
+    const farmerId = document.getElementById('farmer-select').value;
+    if (!farmerId) {
+        document.getElementById('iot-device-select').innerHTML = '<option value="">Select a Farmer First</option>';
+        return;
+    }
+
+    fetch(`/rewards/get_available_iot_devices?farmer_id=${farmerId}`)  // ✅ Correct API for customers
+    .then(response => response.json())
+    .then(data => {
+        console.log("DEBUG: Available IoT Devices Data:", data);
+        const deviceSelect = document.getElementById('iot-device-select');
+        deviceSelect.innerHTML = '<option value="">Select an IoT Device</option>';
+
+        if (!data.devices || data.devices.length === 0) {
+            console.warn("No IoT devices available for this farmer.");
+            deviceSelect.innerHTML = '<option value="">No IoT Devices Available</option>';
+            return;
+        }
+
+        data.devices.forEach(device => {
+            deviceSelect.innerHTML += `<option value="${device.id}">${device.id} (Available)</option>`;
+        });
+    })
+    .catch(error => console.error('Error loading IoT devices:', error));
+}
+
+
+
+   function loadCustomerTrees() {
+    fetch('/rewards/get_customer_trees')
+    .then(response => response.json())
+    .then(data => {
+        console.log("Received Trees Data:", data);
+        const treeContainer = document.getElementById('customer-trees');
+
+        // ✅ Do NOT clear treeContainer on refresh
+        if (!treeContainer.innerHTML.trim()) {
+            data.trees.forEach(tree => {
+                if (tree.health > 0) { // ✅ Only show trees that are still alive
+                    createTreeBox(tree.id, tree.type, tree.farmer_name, tree.device_id, tree.health, tree.phase, tree.time_remaining);
+                }
+            });
+        }
+    })
+    .catch(error => console.error('Error loading customer trees:', error));
+}
+
+
+
+
+
+
+
+       // ✅ Call refreshBalanceAndTrees only when an action happens
+function plantTree() {
+    const farmerSelect = document.getElementById('farmer-select');
+    const farmerId = farmerSelect.value;
+    const farmerName = farmerSelect.options[farmerSelect.selectedIndex].text; // ✅ Get farmer's name
+
+    const deviceId = document.getElementById('iot-device-select').value;
+    const treeType = document.getElementById('tree-type').value;
+    const statusMessage = document.getElementById('planting-status');
+
+    if (!farmerId || !deviceId || !treeType) {
+        alert("Please select a farmer, IoT device, and tree type before planting.");
+        return;
+    }
+
+    fetch('/rewards/plant_tree', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: `tree_type=${treeType}&farmer_id=${farmerId}`
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            console.error("Planting Error:", data.error);
+            statusMessage.textContent = `Error: ${data.error}`;
+            statusMessage.classList.add("text-danger");
+        } else {
+            console.log("Planted Tree Data:", data);
+            console.log(`DEBUG: Created tree with ID ${data.tree_id}`);
+
+            statusMessage.textContent = "Tree planted successfully!";
+            statusMessage.classList.remove("text-danger");
+            statusMessage.classList.add("text-success");
+
+            // ✅ Immediately update UI by creating the tree box
+            createTreeBox(data.tree_id, treeType, farmerName, deviceId, 100, "Seedling");
+
+            // ✅ Update balance and dropdown options after planting
+            refreshBalanceAndTrees();
+        }
+    })
+    .catch(error => {
+        console.error('Error planting tree:', error);
+        statusMessage.textContent = "Error planting tree. Please try again.";
+        statusMessage.classList.add("text-danger");
+    });
+}
+
+
+function nextPhase(treeId) {
+    console.log(`DEBUG: Sending next phase request for Tree ID: ${treeId}`);
+
+    fetch(`/rewards/next_phase/${treeId}`, { method: 'POST' })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            console.error(`ERROR: ${data.error}`);
+            alert(data.error);
+        } else {
+            console.log("Tree Progression Response:", data);
+            alert(data.message);
+
+            // ✅ Update phase label
+            document.getElementById(`phase-${treeId}`).textContent = data.new_phase;
+
+              // ✅ Reset background color to default (remove green highlight)
+            const treeBox = document.getElementById(`tree-box-${treeId}`);
+            treeBox.classList.remove("border-success");
+            treeBox.style.backgroundColor = ""; // ✅ Reset background to default
+
+            // ✅ If NOT Mature Tree, reset countdown and buttons
+            if (data.new_phase !== "Mature Tree") {
+                document.getElementById(`timer-${treeId}`).textContent = "10";
+                document.getElementById(`progress-${treeId}`).style.width = "100%";
+
+                // ✅ Reset water & fertilize buttons for the next phase
+                document.getElementById(`water-${treeId}`).disabled = false;
+                document.getElementById(`fertilize-${treeId}`).disabled = false;
+                document.getElementById(`next-phase-${treeId}`).disabled = true;
+
+                // ✅ Restart the countdown with 10 seconds
+                startTreeCountdown(treeId, 10);
+            } else {
+                // ✅ Replace "Next Phase" with "Claim Rewards" button
+                const nextPhaseButton = document.getElementById(`next-phase-${treeId}`);
+                nextPhaseButton.textContent = "Claim Rewards";
+                nextPhaseButton.classList.remove("btn-success");
+                nextPhaseButton.classList.add("btn-primary");
+                nextPhaseButton.setAttribute("onclick", `claimTree('${treeId}')`);
+
+                // ❌ Keep "Claim Rewards" disabled until both actions are done
+                nextPhaseButton.disabled = true;
+
+                // ✅ Reset Timer for Mature Tree to 10 sec instead of expired
+                document.getElementById(`timer-${treeId}`).textContent = "10";
+                document.getElementById(`progress-${treeId}`).style.width = "100%";
+
+                // ✅ Ensure water & fertilize buttons are ENABLED in Mature Tree
+                document.getElementById(`water-${treeId}`).disabled = false;
+                document.getElementById(`fertilize-${treeId}`).disabled = false;
+
+                // ✅ Start a final countdown for the Mature Tree phase (if needed)
+                startTreeCountdown(treeId, 10);
+            }
+        }
+    })
+    .catch(error => console.error("Error progressing tree to next phase:", error));
+}
+
+function claimTree(treeId) {
+    console.log(`DEBUG: Sending claim request for Tree ID: ${treeId}`);
+
+    fetch(`/rewards/claim_tree/${treeId}`, { method: 'POST' })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            console.error(`ERROR: ${data.error}`);
+            alert(data.error);
+        } else {
+            console.log("Claim Response:", data);
+            alert(data.message);
+
+            // ✅ Remove the tree box from the UI
+            document.getElementById(`tree-box-${treeId}`).remove();
+
+            // ✅ Refresh balance after claiming rewards
+            refreshBalanceAndTrees();
+        }
+    })
+    .catch(error => console.error("Error claiming tree:", error));
+}
+
+
+
+
+
+function createTreeBox(treeId, treeType, farmerName, deviceId, health = 100, phase = "Seedling", timeRemaining = 10) {
+    console.log(`DEBUG: Creating tree box for Tree ID: ${treeId}`);
+
+    const treeContainer = document.getElementById('customer-trees');
+    if (!treeContainer) {
+        console.error("ERROR: 'customer-trees' container not found.");
+        return;
+    }
+
+    if (document.getElementById(`tree-box-${treeId}`)) {
+        console.warn(`Tree box ${treeId} already exists, skipping creation.`);
+        return;
+    }
+
+    const treeBox = document.createElement('div');
+    treeBox.className = "card mb-3 p-3 border-dark";
+    treeBox.setAttribute("id", `tree-box-${treeId}`);
+
+    treeBox.innerHTML = `
+        <div class="card-body">
+            <h5 class="card-title">${treeType} - <span id="phase-${treeId}">${phase}</span></h5>
+            <p class="card-text"><strong>Farmer:</strong> <span id="farmer-${treeId}">${farmerName}</span></p>
+            <p class="card-text"><strong>Device ID:</strong> ${deviceId}</p>
+            <p class="card-text"><strong>Health:</strong> <span id="health-${treeId}">${health}%</span></p>
+
+            <p class="card-text"><strong>Time Remaining:</strong> <span id="timer-${treeId}">${timeRemaining}</span> sec</p>
+            <div class="progress mb-2">
+                <div id="progress-${treeId}" class="progress-bar bg-success" style="width: ${(timeRemaining / 10) * 100}%;"></div>
+            </div>
+
+            <button id="water-${treeId}" class="btn btn-primary" onclick="waterTree('${treeId}')">Water ($2)</button>
+            <button id="fertilize-${treeId}" class="btn btn-warning" onclick="fertilizeTree('${treeId}')">Fertilize ($5)</button>
+            <button id="next-phase-${treeId}" class="btn btn-secondary mt-2" onclick="nextPhase('${treeId}')" disabled>Next Phase</button>
+            <button id="delete-${treeId}" class="btn btn-danger mt-2" onclick="deleteTree('${treeId}', '${deviceId}')" style="display: none;">Delete</button>
+        </div>
+    `;
+
+    treeContainer.appendChild(treeBox);
+
+    // ✅ Start countdown with the correct logic
+    startTreeCountdown(treeId, timeRemaining);
+}
+
+
+function startTreeCountdown(treeId, timeRemaining) {
+    const timerElement = document.getElementById(`timer-${treeId}`);
+    const treeBox = document.getElementById(`tree-box-${treeId}`);
+    const progressBar = document.getElementById(`progress-${treeId}`);
+    const waterButton = document.getElementById(`water-${treeId}`);
+    const fertilizeButton = document.getElementById(`fertilize-${treeId}`);
+    const deleteButton = document.getElementById(`delete-${treeId}`);
+    const nextPhaseButton = document.getElementById(`next-phase-${treeId}`);
+
+    if (!timerElement || !treeBox || !progressBar || !waterButton || !fertilizeButton || !deleteButton || !nextPhaseButton) {
+        console.error(`ERROR: Missing elements for Tree ID ${treeId}`);
+        return;
+    }
+
+    // Ensure the delete button is hidden at the start
+    deleteButton.style.display = "none";
+
+    // Countdown logic
+    const countdown = setInterval(() => {
+        if (timeRemaining > 0) {
+            timeRemaining--;
+            timerElement.textContent = timeRemaining;
+            progressBar.style.width = `${(timeRemaining / 10) * 100}%`;
+
+            if (timeRemaining <= 5) {
+                progressBar.classList.remove("bg-success");
+                progressBar.classList.add("bg-warning");
+            }
+            if (timeRemaining <= 2) {
+                progressBar.classList.remove("bg-warning");
+                progressBar.classList.add("bg-danger");
+            }
+        } else {
+            clearInterval(countdown);
+            timerElement.textContent = "Time Expired!";
+            progressBar.style.width = "0%";
+
+            // ✅ Check if the tree was properly watered & fertilized
+            if (!waterButton.disabled || !fertilizeButton.disabled) {
+                // ❌ Tree was neglected → Mark as dead
+                treeBox.classList.remove("border-dark");
+                treeBox.classList.add("border-danger");
+                treeBox.style.backgroundColor = "#ffcccc";  // ✅ Distinct lighter red
+                nextPhaseButton.disabled = true;
+                deleteButton.style.display = "block"; // ✅ Show delete button
+
+                // ✅ Add a message prompting the user to remove the dead plant
+                const existingMessage = treeBox.querySelector(".death-message");
+                if (!existingMessage) {
+                    treeBox.innerHTML += `<p class="fw-bold text-center mt-2 death-message">🌱 This plant has died. Please remove it. 🌱</p>`;
+                }
+            } else {
+                // ✅ Tree is healthy → Enable Next Phase or Claim Button
+                treeBox.classList.remove("border-dark", "border-danger");
+                treeBox.classList.add("border-success");
+                treeBox.style.backgroundColor = "#ccffcc";  // ✅ Distinct lighter green
+
+                if (document.getElementById(`phase-${treeId}`).textContent === "Mature Tree") {
+                    nextPhaseButton.textContent = "Claim Rewards";
+                    nextPhaseButton.classList.remove("btn-success");
+                    nextPhaseButton.classList.add("btn-primary");
+                    nextPhaseButton.setAttribute("onclick", `claimTree('${treeId}')`);
+                    nextPhaseButton.disabled = true; // ❌ Keep disabled until conditions are met
+
+                    // ✅ Enable Claim Button ONLY if both Water & Fertilize are done
+                    if (waterButton.disabled && fertilizeButton.disabled) {
+                        nextPhaseButton.disabled = false;
+                    }
+                } else {
+                    nextPhaseButton.disabled = false;
+                    nextPhaseButton.classList.add("btn-success");
+                }
+            }
+        }
+    }, 1000);
+}
+
+
+
+
+
+
+function removeTree(treeId, deviceId) {
+    if (!confirm("Are you sure you want to remove this tree? This action cannot be undone.")) {
+        return;
+    }
+
+    fetch(`/rewards/remove_tree/${treeId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ device_id: deviceId }) // Send device ID to free it
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            console.log(`Tree ${treeId} removed successfully.`);
+            document.getElementById(`tree-box-${treeId}`).remove();
+            refreshBalanceAndTrees(); // ✅ Update the UI
+        } else {
+            alert(`Error removing tree: ${data.error}`);
+        }
+    })
+    .catch(error => console.error("Error removing tree:", error));
+}
+
+function deleteTree(treeId, deviceId) {
+    if (!confirm("Are you sure you want to remove this tree? This action cannot be undone.")) {
+        return; // ✅ Prevent accidental deletions
+    }
+
+    fetch(`/rewards/remove_tree/${treeId}/${deviceId}`, { method: 'DELETE' })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            alert(data.error);
+        } else {
+            alert("Tree removed successfully!");
+            document.getElementById(`tree-box-${treeId}`).remove(); // ✅ Remove box from UI
+            refreshBalanceAndTrees(); // ✅ Update the balance & available IoT devices
+        }
+    })
+    .catch(error => console.error("Error removing tree:", error));
+}
+
+
+
+
+
+
+
+
+
+      function waterTree(treeId) {
+    fetch(`/rewards/water_tree/${treeId}`, { method: 'POST' })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            alert(data.error);
+        } else {
+            alert("Tree watered successfully!");
+            document.getElementById(`water-${treeId}`).disabled = true;
+            refreshBalanceAndTrees(); // ✅ Refresh both balance & trees
+        }
+    })
+    .catch(error => console.error("Error watering tree:", error));
+}
+
+function fertilizeTree(treeId) {
+    fetch(`/rewards/fertilize_tree/${treeId}`, { method: 'POST' })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            alert(data.error);
+        } else {
+            alert("Tree fertilized successfully!");
+            document.getElementById(`fertilize-${treeId}`).disabled = true;
+            refreshBalanceAndTrees(); // ✅ Refresh both balance & trees
+        }
+    })
+    .catch(error => console.error("Error fertilizing tree:", error));
+}
+
+
+
+
+
+        function updateBalanceDisplay(newBalance) {
+    console.log(`DEBUG: Updating balance display to $${newBalance}`); // ✅ Debug log
+    document.getElementById("user-balance").textContent = `Balance: $${newBalance.toFixed(2)}`;
+}
+
+
+function refreshBalanceAndTrees() {
+    console.log("DEBUG: Refreshing balance and tree list..."); // ✅ Debug log
+
+    // ✅ Fetch and update balance
+    fetch('/rewards/get_balance')
+    .then(response => response.json())
+    .then(data => {
+        if (data.balance !== undefined) {
+            document.getElementById("user-balance").textContent = `Balance: $${data.balance.toFixed(2)}`;
+        } else {
+            console.error("ERROR: Failed to fetch user balance.");
+        }
+    })
+    .catch(error => console.error("Error fetching balance:", error));
+
+    // ✅ Refresh trees
+    loadCustomerTrees();
+}
+
+
+        function checkTreeReadyForNextPhase(treeId) {
+    const waterButton = document.getElementById(`water-${treeId}`);
+    const fertilizeButton = document.getElementById(`fertilize-${treeId}`);
+    const nextPhaseButton = document.getElementById(`next-phase-${treeId}`);
+
+    if (waterButton.disabled && fertilizeButton.disabled) {
+        nextPhaseButton.disabled = false; // ✅ Unlock Next Phase button if both are done
+    }
+}
+
+        function updateTree(treeId) {
+    console.log(`DEBUG: Sending update request for Tree ID: ${treeId}`);
+
+    fetch(`/rewards/update_tree/${treeId}`, { method: 'POST' })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            alert(data.error);
+        } else {
+            console.log("Tree Update Response:", data);
+            alert(data.message);
+        }
+    })
+    .catch(error => console.error("Error updating tree:", error));
+}
+
+
+
+    </script>
 </head>
 <body class="bg-light">
-<!-- Header Section -->
-<header class="bg-success text-white py-3 mb-4">
-    <div class="container d-flex justify-content-between align-items-center">
-        <!-- Logo -->
-        <div class="d-flex align-items-center me-3">
-            <img src="{{ url_for('static', filename='uploads/Harvest Haven.png') }}" alt="Harvest Haven Logo" style="width: 80px; height: auto;">
-        </div>
+    <!-- Header Section -->
+    <header class="bg-success text-white py-3 mb-4">
+        <div class="container d-flex justify-content-between align-items-center">
+            <div class="d-flex align-items-center me-3">
+                <img src="{{ url_for('static', filename='uploads/Harvest Haven.png') }}" alt="Harvest Haven Logo" style="width: 80px; height: auto;">
+            </div>
 
-        <!-- Navigation Bar -->
-        <ul class="nav flex-grow-1 justify-content-center">
-            {% for option in nav_options %}
-            <li class="nav-item">
-                <a class="nav-link text-white" href="{{ option.url }}">{{ option.name }}</a>
-            </li>
-            {% endfor %}
-        </ul>
-
-        <!-- Dropdown Button -->
-        <div class="dropdown">
-            <button class="btn btn-light dropdown-toggle" type="button" id="dropdownMenuButton" data-bs-toggle="dropdown" aria-expanded="false">
-                Menu
-            </button>
-            <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="dropdownMenuButton">
-                <li><a class="dropdown-item" href="{{ url_for('profile.profile') }}">Profile</a></li>
-                <li><a class="dropdown-item" href="{{ url_for('rewards.rewards') }}">Rewards</a></li>
-                <li><hr class="dropdown-divider"></li>
-                <li><a class="dropdown-item text-danger" href="{{ url_for('profile.logout') }}">Logout</a></li>
+            <ul class="nav flex-grow-1 justify-content-center">
+                {% for option in nav_options %}
+                <li class="nav-item">
+                    <a class="nav-link text-white" href="{{ option.url }}">{{ option.name }}</a>
+                </li>
+                {% endfor %}
             </ul>
+
+            <div class="dropdown">
+                <button class="btn btn-light dropdown-toggle" type="button" id="dropdownMenuButton" data-bs-toggle="dropdown" aria-expanded="false">
+                    Menu
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="dropdownMenuButton">
+                    <li><a class="dropdown-item" href="{{ url_for('profile.profile') }}">Profile</a></li>
+                    <li><a class="dropdown-item" href="{{ url_for('rewards.rewards') }}">Rewards</a></li>
+                    <li><hr class="dropdown-divider"></li>
+                    <li><a class="dropdown-item text-danger" href="{{ url_for('profile.logout') }}">Logout</a></li>
+                </ul>
+            </div>
         </div>
-    </div>
-</header>
+    </header>
 
-<main class="container">
-    <!-- Row with Title and Balance/Points -->
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <!-- Title -->
-        <h1 class="text-success">Plant a Future</h1>
-
-        <!-- Balance and Points -->
-        <div class="text-end">
-            <p class="mb-0">Balance: ${{ user_balance }}</p>
-            <p class="mb-0">Points: {{ user_points }}</p>
-        </div>
-    </div>
-
-    <!-- Tree Planting Form -->
-    <div class="card mb-4">
-        <div class="card-header bg-success text-white">Plant a New Tree</div>
-        <div class="card-body">
-            <form method="POST" action="{{ url_for('rewards.plant_tree') }}">
-                <!-- Farmer Selection -->
-                <div class="mb-3">
-                    <label for="farmer-select" class="form-label">Select Farmer:</label>
-                    <select name="farmer_id" id="farmer-select" class="form-select" required>
-                        {% for farmer_id, farmer in farmers.items() %}
-                        <option value="{{ farmer_id }}">{{ farmer.name }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-
-                <!-- Tree Type Selection -->
-                <div class="mb-3">
-                    <label for="tree-type" class="form-label">Select Tree Type:</label>
-                    <select name="tree_type" id="tree-type" class="form-select" required>
-                        {% for tree_type, details in tree_types.items() %}
-                        <option value="{{ tree_type }}">
-                            {{ details.name }} - Cost: ${{ details.price }} / {{ details.price * points_conversion_rate }} points
-                            - Expected Investment: ${{ details.investment_return }}
-                        </option>
-                        {% endfor %}
-                    </select>
-                </div>
-
-                <!-- Payment Method -->
-                <div class="mb-3">
-                    <label for="payment-method" class="form-label">Payment Method:</label>
-                    <select name="payment_method" id="payment-method" class="form-select" required>
-                        <option value="balance">Balance</option>
-                        <option value="points">Points</option>
-                    </select>
-                </div>
-
-                <button type="submit" class="btn btn-success">Plant</button>
-            </form>
-        </div>
-    </div>
+    <main class="container">
+        <h1 class="text-success mb-4 d-flex justify-content-between">
+    Plant a Future
+    <span id="user-balance" class="badge bg-primary">Balance: ${{ user_balance }}</span>
+</h1>
 
 
-    <!-- Display Trees -->
-    <!-- Display Trees -->
-{% for tree_id, tree in trees.items() %}
-<div id="tree-box-{{ tree_id }}"
-    class="card mb-3 tree-box
-    {% if tree.phase == 'Dead' %}dead-tree{% elif tree.watered and tree.fertilized %}ready-tree{% else %}normal-tree{% endif %}">
-
+        <!-- Tree Planting Form -->
+        <div class="card mb-4">
+    <div class="card-header bg-success text-white">Plant a New Tree</div>
     <div class="card-body">
-        <h3 class="card-title">{{ tree.type }} - {{ tree.phase }}</h3>
-        <p class="card-text">Health: {{ tree.health }}</p>
-        <p class="card-text">Watered: {{ 'Yes' if tree.watered else 'No' }}</p>
-        <p class="card-text">Fertilized: {{ 'Yes' if tree.fertilized else 'No' }}</p>
+        <form id="plant-tree-form">
+            <!-- Step 1: Select a Registered Farmer -->
+            <label for="farmer-select" class="form-label">Select a Registered Farmer:</label>
+            <select id="farmer-select" class="form-select mb-2" required>
+                <option value="">Loading Farmers...</option>
+            </select>
 
-        {% if tree.phase == "Dead" %}
-        <!-- Dead Tree Section -->
-        <p class="text-danger">Reason for Death: {{ tree.kill_reason or 'No reason provided' }}</p>
-        {% else %}
-        <!-- Countdown Timer -->
-        <p id="countdown-{{ tree_id }}" class="card-text">Time Remaining: {{ tree.time_remaining }}s</p>
+            <!-- Step 2: Select an Available IoT Device (Appears After Selecting a Farmer) -->
+            <label for="iot-device-select" class="form-label">Select an Available IoT Device:</label>
+            <select id="iot-device-select" class="form-select mb-2" required>
+                <option value="">Select a Farmer First</option>
+            </select>
 
-        <!-- Action Buttons -->
-        <form method="POST" action="{{ url_for('rewards.water_tree', tree_id=tree_id) }}">
-            <button id="water-{{ tree_id }}" type="submit" class="btn btn-primary {% if tree.watered or tree.health == 0 %}disabled{% endif %}">Water</button>
-        </form>
-        <form method="POST" action="{{ url_for('rewards.fertilize_tree', tree_id=tree_id) }}">
-            <button id="fertilize-{{ tree_id }}" type="submit" class="btn btn-primary {% if tree.fertilized or tree.health == 0 %}disabled{% endif %}">Fertilize</button>
-        </form>
+            <!-- Step 3: Select Tree Type (Retained Original Functionality) -->
+            <label for="tree-type" class="form-label">Select Tree Type:</label>
+            <select id="tree-type" class="form-select mb-2" required>
+                {% for tree_type, details in tree_types.items() %}
+                <option value="{{ tree_type }}">
+                    {{ details.name }} - Cost: ${{ details.price }}
+                </option>
+                {% endfor %}
+            </select>
 
-        {% if tree.phase == "Mature Tree" %}
-        <!-- Claim Rewards -->
-        <form method="POST" action="{{ url_for('rewards.next_phase', tree_id=tree_id) }}">
-            <button id="claim-button-{{ tree_id }}" type="submit" class="btn btn-success {% if not (tree.watered and tree.fertilized) %}disabled{% endif %}">Claim Rewards</button>
-        </form>
-        {% else %}
-        <!-- Next Phase Button -->
-        <form method="POST" action="{{ url_for('rewards.next_phase', tree_id=tree_id) }}">
-            <button id="next-phase-{{ tree_id }}" type="submit" class="btn btn-success"
-                {% if not (tree.watered and tree.fertilized and tree.time_remaining == 0) or tree.health == 0 %}disabled{% endif %}>
-                Next Phase
-            </button>
-        </form>
-        {% endif %}
-        {% endif %}
+            <!-- Submit Button -->
+            <button id="plant-tree-btn" type="button" class="btn btn-success">Plant Tree</button>
+<p id="planting-status" class="text-success mt-2"></p>  <!-- ✅ Status Message -->
 
-        <!-- Delete Button -->
-        <form method="POST" action="{{ url_for('rewards.delete_tree', tree_id=tree_id) }}">
-            <button id="delete-{{ tree_id }}" type="submit" class="btn btn-danger">Delete Tree</button>
         </form>
     </div>
 </div>
-{% endfor %}
 
-</main>
+        <h3 class="text-primary">Your Planted Trees</h3>
+        <div id="customer-trees">
+        </div>
+    </main>
 
-<!-- Fetch Updated Trees Script -->
-<script>
-    function fetchUpdatedTrees() {
-    fetch('/rewards/get_trees')
-        .then(response => response.json())
-        .then(data => {
-            if (data.trees) {
-                data.trees.forEach(tree => {
-                    const treeBox = document.getElementById(`tree-box-${tree.id}`);
-                    const countdownElement = document.getElementById(`countdown-${tree.id}`);
-                    const nextPhaseButton = document.getElementById(`next-phase-${tree.id}`);
-                    const waterButton = document.getElementById(`water-${tree.id}`);
-                    const fertilizeButton = document.getElementById(`fertilize-${tree.id}`);
-                    const deleteButton = document.getElementById(`delete-${tree.id}`);
-
-                    // Handle Dead Trees
-                    if (tree.health === 0 || tree.phase === 'Dead') {
-                        // Update class for dead tree
-                        treeBox.classList.remove('ready-tree', 'normal-tree');
-                        treeBox.classList.add('dead-tree');
-
-                        countdownElement.textContent = "Your plant died, your points and balance will not be refunded.";
-                        waterButton.style.display = "none";
-                        fertilizeButton.style.display = "none";
-                        nextPhaseButton.style.display = "none";
-                        deleteButton.style.display = "inline-block";
-                    }
-                    // Timer Running
-                    else if (tree.time_remaining > 0) {
-                        // Update class for normal tree
-                        treeBox.classList.remove('ready-tree', 'dead-tree');
-                        treeBox.classList.add('normal-tree');
-
-                        countdownElement.textContent = `Time Remaining: ${Math.round(tree.time_remaining)}s`;
-                        nextPhaseButton.disabled = true; // Disable Next Phase while timer is running
-                        nextPhaseButton.style.backgroundColor = ""; // Reset button color
-                        nextPhaseButton.style.color = "";
-                    }
-                    // Next Phase Enabled - Mature Tree
-                    else if (tree.next_phase_enabled && tree.phase === "Mature Tree") {
-                        // Update class for ready tree
-                        treeBox.classList.remove('dead-tree', 'normal-tree');
-                        treeBox.classList.add('ready-tree');
-
-                        countdownElement.textContent = "Congrats, please claim your rewards!";
-                        nextPhaseButton.disabled = false;
-                        nextPhaseButton.style.backgroundColor = "green";
-                        nextPhaseButton.style.color = "white";
-                    }
-                    // Next Phase Enabled - Other Phases
-                    else if (tree.next_phase_enabled) {
-                        // Update class for ready tree
-                        treeBox.classList.remove('dead-tree', 'normal-tree');
-                        treeBox.classList.add('ready-tree');
-
-                        countdownElement.textContent = "Congrats, your plant can proceed to the next phase!";
-                        nextPhaseButton.disabled = false;
-                        nextPhaseButton.style.backgroundColor = "green";
-                        nextPhaseButton.style.color = "white";
-                    }
-                    // Criteria Not Met
-                    else {
-                        // Update class for normal tree
-                        treeBox.classList.remove('ready-tree', 'dead-tree');
-                        treeBox.classList.add('normal-tree');
-
-                        countdownElement.textContent = "Your plant died, your points and balance will not be refunded.";
-                        nextPhaseButton.disabled = true;
-                        waterButton.style.display = "none";
-                        fertilizeButton.style.display = "none";
-                        deleteButton.style.display = "inline-block";
-                    }
-                });
-            }
-        })
-        .catch(error => console.error('Error fetching tree data:', error));
-}
-
-// Fetch updated data every second
-setInterval(fetchUpdatedTrees, 1000);
-
-</script>
-
-
-<!-- Bootstrap JS -->
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
