@@ -84,13 +84,18 @@ function loadRegisteredFarmers() {
         if (!treeContainer.innerHTML.trim()) {
             data.trees.forEach(tree => {
                 if (tree.health > 0) { // ✅ Only show trees that are still alive
-                    createTreeBox(tree.id, tree.type, tree.farmer_name, tree.device_id, tree.health, tree.phase, tree.time_remaining);
+                    createTreeBox(
+                        tree.id, tree.type, tree.farmer_name, tree.device_id,
+                        tree.health, tree.phase, tree.time_remaining,
+                        tree.watered, tree.fertilized  // ✅ Persist water & fertilize state
+                    );
                 }
             });
         }
     })
     .catch(error => console.error('Error loading customer trees:', error));
 }
+
 
 
 
@@ -163,10 +168,23 @@ function nextPhase(treeId) {
             // ✅ Update phase label
             document.getElementById(`phase-${treeId}`).textContent = data.new_phase;
 
-              // ✅ Reset background color to default (remove green highlight)
+            // ✅ Reset background color to default (remove green highlight)
             const treeBox = document.getElementById(`tree-box-${treeId}`);
             treeBox.classList.remove("border-success");
             treeBox.style.backgroundColor = ""; // ✅ Reset background to default
+
+             // ✅ Fix Image Path & Ensure It Updates on Phase Change
+            const phaseImages = {
+                "Seedling": "/static/uploads/seedling.png",
+                "Plant": "/static/uploads/plant.png",
+                "Growing Tree": "/static/uploads/growing_tree.png",
+                "Mature Tree": "/static/uploads/mature_tree.png"
+            };
+            const imageElement = document.getElementById(`plant-image-${treeId}`);
+if (imageElement) {
+    imageElement.src = phaseImages[data.new_phase] || phaseImages["Seedling"];
+}
+
 
             // ✅ If NOT Mature Tree, reset countdown and buttons
             if (data.new_phase !== "Mature Tree") {
@@ -207,6 +225,7 @@ function nextPhase(treeId) {
     .catch(error => console.error("Error progressing tree to next phase:", error));
 }
 
+
 function claimTree(treeId) {
     console.log(`DEBUG: Sending claim request for Tree ID: ${treeId}`);
 
@@ -234,7 +253,7 @@ function claimTree(treeId) {
 
 
 
-function createTreeBox(treeId, treeType, farmerName, deviceId, health = 100, phase = "Seedling", timeRemaining = 10) {
+function createTreeBox(treeId, treeType, farmerName, deviceId, health = 100, phase = "Seedling", timeRemaining = 10, watered = false, fertilized = false) {
     console.log(`DEBUG: Creating tree box for Tree ID: ${treeId}`);
 
     const treeContainer = document.getElementById('customer-trees');
@@ -249,8 +268,17 @@ function createTreeBox(treeId, treeType, farmerName, deviceId, health = 100, pha
     }
 
     const treeBox = document.createElement('div');
-    treeBox.className = "card mb-3 p-3 border-dark";
+    treeBox.className = "card mb-3 p-3 border-dark position-relative";
     treeBox.setAttribute("id", `tree-box-${treeId}`);
+
+    // ✅ Fix Image Path & Ensure It Updates on Phase Change
+    const phaseImages = {
+        "Seedling": "/static/uploads/seedling.png",
+        "Plant": "/static/uploads/plant.png",
+        "Growing Tree": "/static/uploads/growing_tree.png",
+        "Mature Tree": "/static/uploads/mature_tree.png"
+    };
+    const plantImage = phaseImages[phase] || phaseImages["Seedling"];
 
     treeBox.innerHTML = `
         <div class="card-body">
@@ -264,11 +292,15 @@ function createTreeBox(treeId, treeType, farmerName, deviceId, health = 100, pha
                 <div id="progress-${treeId}" class="progress-bar bg-success" style="width: ${(timeRemaining / 10) * 100}%;"></div>
             </div>
 
-            <button id="water-${treeId}" class="btn btn-primary" onclick="waterTree('${treeId}')">Water ($2)</button>
-            <button id="fertilize-${treeId}" class="btn btn-warning" onclick="fertilizeTree('${treeId}')">Fertilize ($5)</button>
+            <button id="water-${treeId}" class="btn btn-primary" onclick="waterTree('${treeId}')" ${watered ? 'disabled' : ''}>Water ($2)</button>
+            <button id="fertilize-${treeId}" class="btn btn-warning" onclick="fertilizeTree('${treeId}')" ${fertilized ? 'disabled' : ''}>Fertilize ($5)</button>
             <button id="next-phase-${treeId}" class="btn btn-secondary mt-2" onclick="nextPhase('${treeId}')" disabled>Next Phase</button>
             <button id="delete-${treeId}" class="btn btn-danger mt-2" onclick="deleteTree('${treeId}', '${deviceId}')" style="display: none;">Delete</button>
         </div>
+
+        <!-- ✅ Plant Stage Image -->
+        <img id="plant-image-${treeId}" src="${plantImage}" alt="Plant Stage"
+            style="position: absolute; top: 10px; right: 10px; width: 100px; height: auto;">
     `;
 
     treeContainer.appendChild(treeBox);
@@ -276,6 +308,8 @@ function createTreeBox(treeId, treeType, farmerName, deviceId, health = 100, pha
     // ✅ Start countdown with the correct logic
     startTreeCountdown(treeId, timeRemaining);
 }
+
+
 
 
 function startTreeCountdown(treeId, timeRemaining) {
