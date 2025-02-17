@@ -1,7 +1,0 @@
-'users', (0, 248)
-'products', (512, 201)
-'ownership', (1024, 137)
-'reward_products', (1536, 72)
-'discounted_items', (2048, 119)
-'transactions', (2560, 207)
-'return_transactions', (3072, 192)
