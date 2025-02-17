@@ -7,6 +7,7 @@ db_manager = EnhancedDatabaseManager()
 @product_bp.route('/', methods=['GET'])
 def home():
     """Main product page with category filtering."""
+    """Main product page with category filtering."""
     user_id = session.get('user_id')
     user_role = session.get('role')
     user = db_manager.get_users().get(user_id, {})
@@ -20,39 +21,41 @@ def home():
     nav_options = nav_data["nav"]
     dropdown_options = nav_data["dropdown"]
 
-    # ✅ Get all products
+    # Get all products
     products = db_manager.get_products()
 
-    # ✅ Get selected category from query parameters
+    # Get selected category from query parameters
     selected_category = request.args.get('category', '')
 
-    # ✅ Convert products dictionary into a list with IDs and add farmer name
+    # Convert products dictionary into a list with IDs
     products_with_ids = [
-        {
-            "id": product_id,
-            **product_data,
-            "uploaded_by": db_manager.get_users().get(product_data.get("farmer_id"), {}).get("name", "Unknown Farmer")
-        }
+        {"id": product_id, **product_data}
         for product_id, product_data in products.items()
     ]
 
-    # ✅ Apply category filtering if a category is selected
+    # Apply category filtering if a category is selected
     if selected_category and selected_category != "All":
         products_with_ids = [product for product in products_with_ids if product["category"] == selected_category]
 
     if user_role == 'customer':
+        user_data = db_manager.get_users().get(user_id, {})
+        user_balance = user_data.get("balance", 0)
+        user_points = user_data.get("points", 0)
+
         return render_template(
             "customer_products.html",
             products=products_with_ids,
             nav_options=nav_options,
             dropdown_options=dropdown_options,
+            selected_category=selected_category,
             user_balance=user_balance,
-            user_points=user_points,
-            selected_category=selected_category
+            user_points=user_points
         )
+
     elif user_role == 'farmer':
-        # ✅ Show only the logged-in farmer's products
+        # Show only the logged-in farmer's products
         owned_products = [product for product in products_with_ids if product.get("farmer_id") == user_id]
+
         return render_template(
             "farmer_products.html",
             products=owned_products,
@@ -73,6 +76,7 @@ def add_product():
     quantity = int(request.form.get('quantity'))
     category = request.form.get('category')
     user_id = session.get('user_id')  # Assign the logged-in farmer ID
+    nutritional_facts = request.form['nutritional_facts']
 
     products = db_manager.get_products()
     product_id = max(products.keys(), default=0) + 1
@@ -82,8 +86,10 @@ def add_product():
         "price": price,
         "quantity": quantity,
         "category": category,
+        "nutritional_facts": nutritional_facts,
         "image_url": "placeholder.png",
         "farmer_id": user_id  # Store the farmer's ID
+
     }
 
     db_manager.save_products(products)
@@ -108,6 +114,9 @@ def update_product(product_id):
         product['name'] = request.form.get('name')
         product['price'] = float(request.form.get('price'))
         product['quantity'] = int(request.form.get('quantity'))
+        product['category'] = request.form.get('category')
+        product['nutritional_facts'] = request.form.get('nutritional_facts', product.get('nutritional_facts', ''))  # ✅ FIXED
+
         products[product_id] = product
         db_manager.save_products(products)
 
@@ -138,12 +147,11 @@ def delete_product(product_id):
 
 @product_bp.route('/add_to_cart/<int:product_id>', methods=['POST'])
 def add_to_cart(product_id):
-    """Add a product to the customer's cart and update stock immediately."""
+    """Add a product to the customer's cart."""
     if session.get('role') != 'customer':
         flash("Access denied! Only customers can add to cart.", "error")
         return redirect(url_for('products.home'))
 
-    db_manager = EnhancedDatabaseManager()
     products = db_manager.get_products()
     product = products.get(product_id)
 
@@ -151,32 +159,13 @@ def add_to_cart(product_id):
         flash("Product not found.", "error")
         return redirect(url_for('products.home'))
 
-    # ✅ Ensure enough stock is available
-    if product["quantity"] < 1:
-        flash("Error: Product is out of stock.", "error")
-        return redirect(url_for('products.home'))
-
-    # ✅ Check if product is already in the cart
+    # Add the product to the customer's cart in the session
     cart = session.get('cart', [])
-    existing_item = next((item for item in cart if item['id'] == product_id), None)
-
-    if existing_item:
-        if product["quantity"] < (existing_item["quantity"] + 1):  # ✅ Prevent over-purchase
-            flash("Error: Not enough stock available.", "error")
-            return redirect(url_for('products.home'))
-        existing_item["quantity"] += 1  # ✅ Increase cart quantity
-    else:
-        cart.append({"id": product_id, "name": product['name'], "price": product['price'], "quantity": 1})
-
-    # ✅ Reduce stock immediately
-    product["quantity"] -= 1
-    products[product_id] = product
-    db_manager.save_products(products)  # ✅ Save updated stock
-
+    cart.append({"id": product_id, "name": product['name'], "price": product['price'], "quantity": 1})
     session['cart'] = cart
+
     flash(f"'{product['name']}' added to cart!", "success")
     return redirect(url_for('products.home'))
-
 
 @product_bp.route('/filter_products', methods=['GET'])
 def filter_products():
