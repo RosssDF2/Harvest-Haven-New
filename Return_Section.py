@@ -20,8 +20,10 @@ def returns():
     all_products = db_manager.get_products()
     users = db_manager.get_users()
 
-    # ✅ Fetch User's Points
-    user_points = users.get(user_id, {}).get("points", 0)
+    # ✅ Fetch User's Balance & Points
+    user_data = users.get(user_id, {})
+    user_balance = user_data.get("balance", 0)  # ✅ Retrieve balance
+    user_points = user_data.get("points", 0)  # ✅ Retrieve points
 
     grouped_products = {}
     for product_id in owned_products_ids:
@@ -48,10 +50,12 @@ def returns():
     return render_template(
         "customer_returns.html",
         products=list(grouped_products.values()),
+        user_balance=user_balance,  # ✅ Ensure balance is passed
         user_points=user_points,  # ✅ Ensure points are passed
         nav_options=nav_options,
         dropdown_options=dropdown_options,
     )
+
 
 
 @return_bp.route('/submit_return', methods=['POST'])

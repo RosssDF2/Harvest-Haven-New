@@ -61,51 +61,110 @@
 
 
 
-<div class="container text-center mt-5">
-    <h1 class="text-success">Confirm Purchase</h1>
-    <p class="fs-5">Adding <span class="fw-bold text-success">${{ amount }}</span> to your balance.</p>
+<div class="container d-flex justify-content-center mt-5">
+    <div class="card p-4 shadow-lg checkout-box">
+        <h2 class="text-success text-center mb-4">Checkout</h2>
+        <p class="fs-5 text-center">Adding <span class="fw-bold text-success">${{ amount }}</span> to your balance.</p>
 
-    {% if errors %}
-    <div class="alert alert-danger">
-        <ul>
-            {% for error in errors %}
-            <li>{{ error }}</li>
-            {% endfor %}
-        </ul>
-    </div>
-    {% endif %}
+        {% if errors %}
+        <div class="alert alert-danger">
+            <ul>
+                {% for error in errors %}
+                <li>{{ error }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
 
-    {% if success %}
-    <div class="alert alert-success p-4 shadow">
-        <h3>{{ success }}</h3>
-    </div>
-    <a href="{{ url_for('profile.profile') }}" class="btn btn-success mt-3">Back to Profile</a>
-    {% endif %}
+        {% if success %}
+        <div class="alert alert-success p-4 shadow text-center">
+            <h3>{{ success }}</h3>
+        </div>
+        <a href="{{ url_for('profile.profile') }}" class="btn btn-success mt-3">Back to Profile</a>
+        {% endif %}
 
-    {% if not hide_form %}
-    <form method="POST" action="{{ url_for('rewards.process_balance_checkout') }}" id="checkout-form">
-        <input type="hidden" name="amount" value="{{ amount }}">
+        {% if not hide_form %}
+        <form method="POST" action="{{ url_for('rewards.process_balance_checkout') }}" id="checkout-form">
+            <input type="hidden" name="amount" value="{{ amount }}">
 
-        <div class="mb-3">
-            <label for="card-name" class="form-label">Name on Card</label>
-            <input type="text" id="card-name" name="card_name" class="form-control" placeholder="John Doe" required>
-        </div>
-        <div class="mb-3">
-            <label for="card" class="form-label">Card Number</label>
-            <input type="text" id="card" name="card" class="form-control" placeholder="1234567890123456" required>
-        </div>
-        <div class="mb-3">
-            <label for="cvv" class="form-label">CVV</label>
-            <input type="text" id="cvv" name="cvv" class="form-control" placeholder="123" required>
-        </div>
-        <div class="mb-3">
-            <label for="expiry-date" class="form-label">Expiry Date</label>
-            <input type="text" id="expiry-date" name="expiry_date" class="form-control" placeholder="MM/YY" required>
-        </div>
-        <button type="submit" class="btn btn-success w-100">Confirm Purchase</button>
-    </form>
-    {% endif %}
+
+
+            <!-- Address Field -->
+            <div class="mb-3">
+                <label for="address" class="form-label">Address</label>
+                <input type="text" id="address" name="address" class="form-control" placeholder="123 Main St, Apt 4B" required>
+            </div>
+
+            <!-- Postal Code Field -->
+            <div class="mb-3">
+                <label for="postal-code" class="form-label">Postal Code</label>
+                <input type="text" id="postal-code" name="postal_code" class="form-control" placeholder="123456" required>
+            </div>
+
+            <div class="mb-3">
+    <label for="card-name" class="form-label">Name on Card</label>
+    <input type="text" id="card-name" name="card_name" class="form-control" placeholder="John Doe" required>
 </div>
+
+
+            <!-- Card Number with Dynamic Logo -->
+            <div class="mb-3 card-input-container">
+    <label for="card" class="form-label">Card Number</label>
+    <div class="position-relative">
+        <input type="text" id="card" name="card" class="form-control" placeholder="1234 5678 9012 3456" required>
+        <img id="card-logo" src="" alt="" class="card-logo">
+    </div>
+</div>
+
+
+
+            <!-- CVV -->
+            <div class="mb-3">
+                <label for="cvv" class="form-label">CVV</label>
+                <input type="text" id="cvv" name="cvv" class="form-control" placeholder="123" required>
+            </div>
+
+            <!-- Expiry Date -->
+            <div class="mb-3">
+                <label for="expiry-date" class="form-label">Expiry Date</label>
+                <input type="text" id="expiry-date" name="expiry_date" class="form-control" placeholder="MM/YY" required>
+            </div>
+
+            <button type="submit" class="btn btn-success w-100">Confirm Purchase</button>
+        </form>
+        {% endif %}
+    </div>
+</div>
+<script>
+document.getElementById('card').addEventListener('input', function () {
+    const cardInput = this.value.replace(/\s/g, ''); // Remove spaces
+    const cardLogo = document.getElementById('card-logo');
+
+    const cardTypes = {
+        "visa": /^4[0-9]{3}/,          // Visa cards start with 4
+        "mastercard": /^5[1-5][0-9]{2}/, // MasterCard starts with 51-55
+        "amex": /^3[47][0-9]{2}/,      // American Express starts with 34 or 37
+        "discover": /^6(?:011|5[0-9]{2})/, // Discover starts with 6011 or 65
+    };
+
+    let cardType = "";
+
+    for (const [type, pattern] of Object.entries(cardTypes)) {
+        if (pattern.test(cardInput)) {
+            cardType = type;
+            break;
+        }
+    }
+
+    if (cardType) {
+        cardLogo.src = `/static/uploads/${cardType}.png`; // ✅ Dynamically load the card image
+        cardLogo.style.display = "inline-block"; // ✅ Show the logo
+    } else {
+        cardLogo.src = "";
+        cardLogo.style.display = "none"; // ✅ Hide logo if not recognized
+    }
+});
+</script>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js"></script>
 </body>

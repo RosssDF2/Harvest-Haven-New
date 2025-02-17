@@ -279,7 +279,7 @@ def next_phase(tree_id):
 
 @reward_bp.route('/plant_tree', methods=['POST'])
 def plant_tree():
-    """Allows customers to plant a tree and assigns an available IoT device."""
+    """Allows customers to plant a tree and assigns an available IoT device while deducting points."""
     if session.get('role') != 'customer':
         return jsonify({"error": "Access denied! Only customers can plant trees."}), 403
 
@@ -290,24 +290,35 @@ def plant_tree():
     if not tree_type or not farmer_id:
         return jsonify({"error": "Missing tree type or farmer selection."}), 400
 
+    # ✅ Define Points Cost
+    tree_costs = {
+        "mango": 500,
+        "avocado": 700,
+        "apple": 600
+    }
+
     with shelve.open(db_manager.db_name, writeback=True) as db:
         iot_devices = db.get("iot_devices", {})
         ownership = db.get("ownership", {})
         users = db.get("users", {})
 
+        user = users.get(user_id)
+        if not user or user["points"] < tree_costs.get(tree_type, 0):
+            return jsonify({"error": "Insufficient points to plant this tree."}), 400
+
+        # ✅ Deduct points
+        user["points"] -= tree_costs[tree_type]
+
         # Find an available IoT device from the selected farmer
-        available_device = None
-        for device_id, device_data in iot_devices.items():
-            if device_data["farmer_id"] == farmer_id and device_data["assigned_user"] is None:
-                available_device = device_id
-                break
+        available_device = next((device_id for device_id, device_data in iot_devices.items()
+                                if device_data["farmer_id"] == farmer_id and device_data["assigned_user"] is None), None)
 
         if not available_device:
             return jsonify({"error": "No available IoT devices from this farmer."}), 400
 
         # Register the tree under the user's ownership
         tree_id = f"tree_{len(ownership.get(user_id, {}).get('plants', [])) + 1}"
-        current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")  # Store as string
+        current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
         new_tree = {
             "id": tree_id,
@@ -317,14 +328,13 @@ def plant_tree():
             "planted_on": current_time,
             "watered": False,
             "fertilized": False,
-            "time_remaining": 10,  # ✅ Start at 10 seconds
+            "time_remaining": 10,
             "farmer_id": farmer_id,
             "farmer_name": users.get(farmer_id, {}).get("name", "Unknown Farmer"),
             "customer_id": user_id,
             "device_id": available_device
         }
 
-        # Store tree in user's ownership
         if user_id not in ownership:
             ownership[user_id] = {"plants": []}
         ownership[user_id]["plants"].append(new_tree)
@@ -335,11 +345,9 @@ def plant_tree():
         # Save changes
         db["ownership"] = ownership
         db["iot_devices"] = iot_devices
+        db["users"] = users  # ✅ Save updated points
 
-        print(f"DEBUG: Tree {tree_id} added with time_remaining: {new_tree['time_remaining']}")
-
-    return jsonify(
-        {"message": "Tree planted successfully!", "tree_id": tree_id, "time_remaining": new_tree["time_remaining"]})
+    return jsonify({"message": "Tree planted successfully!", "tree_id": tree_id, "time_remaining": new_tree["time_remaining"]})
 
 
 @reward_bp.route('/water_tree/<tree_id>', methods=['POST'])

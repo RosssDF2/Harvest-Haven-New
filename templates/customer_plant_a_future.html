@@ -103,8 +103,7 @@ function loadRegisteredFarmers() {
 
 
 
-       // ✅ Call refreshBalanceAndTrees only when an action happens
-function plantTree() {
+      function plantTree() {
     const farmerSelect = document.getElementById('farmer-select');
     const farmerId = farmerSelect.value;
     const farmerName = farmerSelect.options[farmerSelect.selectedIndex].text; // ✅ Get farmer's name
@@ -118,6 +117,24 @@ function plantTree() {
         return;
     }
 
+    // ✅ Define Points Cost
+    const treeCosts = {
+        "mango": 500,
+        "avocado": 700,
+        "apple": 600
+    };
+
+    // ✅ Fetch user's points from the UI
+    const userPointsElement = document.querySelector(".fw-bold.text-warning");
+    let userPoints = parseInt(userPointsElement.textContent) || 0;
+
+    // ✅ Check if user has enough points
+    if (userPoints < treeCosts[treeType]) {
+        alert(`You do not have enough points to plant a ${treeType} tree. You need ${treeCosts[treeType]} points.`);
+        return;
+    }
+
+    // ✅ Send planting request
     fetch('/rewards/plant_tree', {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -137,6 +154,10 @@ function plantTree() {
             statusMessage.classList.remove("text-danger");
             statusMessage.classList.add("text-success");
 
+            // ✅ Deduct points in the UI immediately
+            userPoints -= treeCosts[treeType];
+            userPointsElement.textContent = userPoints;
+
             // ✅ Immediately update UI by creating the tree box
             createTreeBox(data.tree_id, treeType, farmerName, deviceId, 100, "Seedling");
 
@@ -150,6 +171,7 @@ function plantTree() {
         statusMessage.classList.add("text-danger");
     });
 }
+
 
 
 function nextPhase(treeId) {
@@ -622,12 +644,11 @@ function refreshBalanceAndTrees() {
             <!-- Step 3: Select Tree Type (Retained Original Functionality) -->
             <label for="tree-type" class="form-label">Select Tree Type:</label>
             <select id="tree-type" class="form-select mb-2" required>
-                {% for tree_type, details in tree_types.items() %}
-                <option value="{{ tree_type }}">
-                    {{ details.name }} - Cost: ${{ details.price }}
-                </option>
-                {% endfor %}
-            </select>
+    <option value="mango">Mango Tree - Cost: 500 Points</option>
+    <option value="avocado">Avocado Tree - Cost: 700 Points</option>
+    <option value="apple">Apple Tree - Cost: 600 Points</option>
+</select>
+
 
             <!-- Submit Button -->
             <button id="plant-tree-btn" type="button" class="btn btn-success">Plant Tree</button>

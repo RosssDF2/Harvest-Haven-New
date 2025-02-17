@@ -6,9 +6,9 @@ checkout_bp = Blueprint('checkout', __name__)
 
 @checkout_bp.route('/checkout/update_cart/<int:product_id>', methods=['POST'])
 def update_cart(product_id):
-    """Update product quantity in the cart."""
+    """Update product quantity in the session cart correctly."""
     try:
-        quantity = int(request.form.get('quantity', 1))  # Default to 1 if no quantity specified
+        quantity = int(request.form.get('quantity', 1))
         if quantity < 1:
             flash("Quantity must be at least 1.", "error")
             return redirect(url_for('checkout.checkout'))
@@ -16,11 +16,18 @@ def update_cart(product_id):
         flash("Invalid quantity entered.", "error")
         return redirect(url_for('checkout.checkout'))
 
-    user = User(session.get('user_id'), session.get('role'))
-    user.update_cart_quantity(product_id, quantity)
+    cart = session.get('cart', [])
 
+    # ✅ Find the item in the cart and update the quantity
+    for item in cart:
+        if item["id"] == product_id:
+            item["quantity"] = quantity
+            break  # ✅ Exit loop once updated
+
+    session['cart'] = cart  # ✅ Save back to session
     flash("Cart updated.", "success")
     return redirect(url_for('checkout.checkout'))
+
 
 @checkout_bp.route('/checkout/remove_from_cart/<int:product_id>', methods=['POST'])
 def remove_from_cart(product_id):

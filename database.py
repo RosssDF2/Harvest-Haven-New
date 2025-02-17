@@ -163,7 +163,7 @@ class EnhancedDatabaseManager:
             return farmer_returns
 
     def get_products(self):
-        """Retrieve all products and ensure each product has a farmer_id."""
+        """Retrieve all products and ensure each product has a farmer_id and correct image path."""
         with shelve.open(self.db_name, writeback=True) as db:
             products = db.get("products", {})
 
@@ -171,6 +171,13 @@ class EnhancedDatabaseManager:
             for product_id, product in products.items():
                 if "farmer_id" not in product:
                     product["farmer_id"] = product.get("uploaded_by", "unknown_farmer")
+
+                # ✅ Ensure correct image paths
+                if not product.get("image_url") or product["image_url"] == "placeholder.png":
+                    product["image_url"] = "static/uploads/placeholder.png"
+                else:
+                    product["image_url"] = product["image_url"].replace("static/", "")
+
             db["products"] = products  # Save changes
 
         return products
@@ -405,19 +412,13 @@ class EnhancedDatabaseManager:
             db["users"] = users
 
     def adjust_user_points(self, user_id, points_delta):
-        """
-        Adjust the user's points by adding or deducting points.
-
-        :param user_id: ID of the user
-        :param points_delta: Points to adjust (positive to add, negative to deduct)
-        :raises ValueError: If the user does not exist or insufficient points
-        """
+        """Adjusts user points and ensures they do not go negative."""
         with shelve.open(self.db_name, writeback=True) as db:
             users = db.get("users", {})
             user = users.get(user_id)
 
             if not user:
-                raise ValueError(f"User with ID '{user_id}' not found.")
+                raise ValueError(f"User '{user_id}' not found.")
 
             new_points = user.get("points", 0) + points_delta
 
@@ -425,8 +426,7 @@ class EnhancedDatabaseManager:
                 raise ValueError("Insufficient points for this transaction.")
 
             user["points"] = new_points
-            users[user_id] = user
-            db["users"] = users
+            db["users"] = users  # ✅ Save updated user data
 
     def submit_report(self, user_id, report_content, category):
         """Submit a report and save it to the database."""

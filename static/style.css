@@ -255,3 +255,67 @@ button:hover {
     margin: auto; /* Centers the box */
     text-align: center; /* Aligns content in center */
 }
+
+.tree-box-center {
+    width: 100% !important; /* ✅ Force full width */
+    max-width: none; /* ✅ Prevents Bootstrap constraints */
+}
+
+
+.tree-box-center div {
+    text-align: left !important; /* ✅ Forces text to the left */
+}
+
+/* ✅ Checkout Box Styling */
+.checkout-box {
+    max-width: 600px; /* ✅ Increased width */
+    width: 100%;
+    background-color: white;
+    border-radius: 10px;
+    padding: 25px;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+    text-align: left;
+}
+
+
+/* ✅ Center Form */
+.container.d-flex.justify-content-center {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+/* ✅ Ensure the card logo remains inside the input box */
+/* ✅ Ensure the card logo stays properly inside the input field */
+.card-logo {
+    position: absolute;
+    top: 50%;
+    right: 12px; /* ✅ Slightly adjusted */
+    transform: translateY(-50%);
+    width: 45px; /* ✅ Slightly larger for clarity */
+    height: 30px; /* ✅ Fixed height for proper alignment */
+    display: none;
+    object-fit: contain; /* ✅ Ensures the logo scales properly */
+    background-color: white; /* ✅ Keeps it from blending with the input */
+    padding: 2px; /* ✅ Adds a little padding */
+    border-radius: 5px; /* ✅ Smooths edges */
+}
+
+/* ✅ Adjust input field padding to ensure text doesn't overlap the logo */
+.card-input-container {
+    position: relative;
+    width: 100%;
+}
+
+.card-input-container input {
+    padding-right: 60px; /* ✅ Extra space for logo */
+}
+
+.card-img-top {
+    width: 100%;
+    height: 200px; /* ✅ Adjusted height for better display */
+    object-fit: cover; /* ✅ Ensures image fills the box */
+    border-radius: 8px; /* ✅ Optional: Keeps rounded edges */
+    background-color: #f8f9fa; /* ✅ Matches UI background */
+}
+

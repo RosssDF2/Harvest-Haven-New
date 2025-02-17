@@ -1,6 +1,7 @@
 from flask import Blueprint, render_template, request, session, flash, redirect, url_for
 from database import EnhancedDatabaseManager
 
+
 product_bp = Blueprint('products', __name__)
 db_manager = EnhancedDatabaseManager()
 
@@ -64,9 +65,15 @@ def home():
         )
 
 
+import os
+from werkzeug.utils import secure_filename
+
+UPLOAD_FOLDER = "static/uploads/"
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
+
 @product_bp.route('/add_product', methods=['POST'])
 def add_product():
-    """Allow farmers to add products."""
+    """Allow farmers to add products with images."""
     if session.get('role') != 'farmer':
         flash("Access denied! Only farmers can add products.", "error")
         return redirect(url_for('products.home'))
@@ -75,8 +82,21 @@ def add_product():
     price = float(request.form.get('price'))
     quantity = int(request.form.get('quantity'))
     category = request.form.get('category')
-    user_id = session.get('user_id')  # Assign the logged-in farmer ID
-    nutritional_facts = request.form['nutritional_facts']
+    nutritional_facts = request.form.get('nutritional_facts')
+    user_id = session.get('user_id')
+
+    # ✅ Handle Image Upload
+    image_file = request.files.get('image')
+    image_url = "static/uploads/placeholder.png"  # Default image
+
+    if image_file and image_file.filename:
+        filename = secure_filename(image_file.filename)
+        file_extension = filename.split('.')[-1].lower()
+
+        if file_extension in ALLOWED_EXTENSIONS:
+            image_path = os.path.join(UPLOAD_FOLDER, filename)
+            image_file.save(image_path)
+            image_url = image_path  # ✅ Store correct image URL
 
     products = db_manager.get_products()
     product_id = max(products.keys(), default=0) + 1
@@ -87,18 +107,17 @@ def add_product():
         "quantity": quantity,
         "category": category,
         "nutritional_facts": nutritional_facts,
-        "image_url": "placeholder.png",
-        "farmer_id": user_id  # Store the farmer's ID
-
+        "image_url": image_url,
+        "farmer_id": user_id
     }
 
     db_manager.save_products(products)
     flash("Product added successfully!", "success")
     return redirect(url_for('products.home'))
 
-@product_bp.route('/update_product/<int:product_id>', methods=['GET', 'POST'])
+@product_bp.route('/update_product/<int:product_id>', methods=['POST'])
 def update_product(product_id):
-    """Allow farmers to update only their own products."""
+    """Allow farmers to update only their own products, including images."""
     if session.get('role') != 'farmer':
         flash("Access denied! Only farmers can update products.", "error")
         return redirect(url_for('products.home'))
@@ -110,20 +129,28 @@ def update_product(product_id):
         flash("Unauthorized access: You cannot update this product.", "error")
         return redirect(url_for('products.home'))
 
-    if request.method == 'POST':
-        product['name'] = request.form.get('name')
-        product['price'] = float(request.form.get('price'))
-        product['quantity'] = int(request.form.get('quantity'))
-        product['category'] = request.form.get('category')
-        product['nutritional_facts'] = request.form.get('nutritional_facts', product.get('nutritional_facts', ''))  # ✅ FIXED
+    product['name'] = request.form.get('name')
+    product['price'] = float(request.form.get('price'))
+    product['quantity'] = int(request.form.get('quantity'))
+    product['category'] = request.form.get('category')
+    product['nutritional_facts'] = request.form.get('nutritional_facts', product.get('nutritional_facts', ''))
 
-        products[product_id] = product
-        db_manager.save_products(products)
+    # ✅ Handle Image Upload
+    image_file = request.files.get('image')
+    if image_file and image_file.filename:
+        filename = secure_filename(image_file.filename)
+        file_extension = filename.split('.')[-1].lower()
 
-        flash(f"Product '{product['name']}' updated successfully!", "success")
-        return redirect(url_for('products.home'))
+        if file_extension in ALLOWED_EXTENSIONS:
+            image_path = os.path.join(UPLOAD_FOLDER, filename)
+            image_file.save(image_path)
+            product["image_url"] = image_path  # ✅ Update image URL in database
 
-    return render_template("update_product.html", product=product)
+    products[product_id] = product
+    db_manager.save_products(products)
+
+    flash(f"Product '{product['name']}' updated successfully!", "success")
+    return redirect(url_for('products.home'))
 
 @product_bp.route('/delete_product/<int:product_id>', methods=['POST'])
 def delete_product(product_id):
@@ -147,7 +174,7 @@ def delete_product(product_id):
 
 @product_bp.route('/add_to_cart/<int:product_id>', methods=['POST'])
 def add_to_cart(product_id):
-    """Add a product to the customer's cart."""
+    """Add a product to the customer's cart with correct quantity handling."""
     if session.get('role') != 'customer':
         flash("Access denied! Only customers can add to cart.", "error")
         return redirect(url_for('products.home'))
@@ -159,13 +186,30 @@ def add_to_cart(product_id):
         flash("Product not found.", "error")
         return redirect(url_for('products.home'))
 
-    # Add the product to the customer's cart in the session
+    try:
+        quantity = int(request.form.get("quantity", 1))
+        if quantity < 1:
+            flash("Quantity must be at least 1.", "error")
+            return redirect(url_for('products.home'))
+    except ValueError:
+        flash("Invalid quantity entered.", "error")
+        return redirect(url_for('products.home'))
+
     cart = session.get('cart', [])
-    cart.append({"id": product_id, "name": product['name'], "price": product['price'], "quantity": 1})
+
+    # ✅ Check if the item already exists in the cart and update its quantity
+    existing_item = next((item for item in cart if item["id"] == product_id), None)
+
+    if existing_item:
+        existing_item["quantity"] += quantity  # ✅ Update quantity instead of replacing
+    else:
+        cart.append({"id": product_id, "name": product['name'], "price": product['price'], "quantity": quantity})
+
     session['cart'] = cart
 
-    flash(f"'{product['name']}' added to cart!", "success")
+    flash(f"'{product['name']}' added to cart! Quantity: {quantity}", "success")
     return redirect(url_for('products.home'))
+
 
 @product_bp.route('/filter_products', methods=['GET'])
 def filter_products():

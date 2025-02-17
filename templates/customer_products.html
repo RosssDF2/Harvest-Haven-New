@@ -102,9 +102,9 @@
     {% for product in products %}
     <div class="col-md-4 mb-4">
         <div class="card">
-            <img src="{{ product.image_url }}" alt="{{ product.name }}"
-                class="card-img-top img-fluid"
-                style="width: 100%; height: 150px; object-fit: contain; background-color: #f8f9fa; padding: 10px; border-radius: 5px;">
+            <img src="{{ url_for('static', filename=product.image_url.replace('static/', '')) }}"
+     alt="{{ product.name }}" class="card-img-top">
+
             <div class="card-body">
                 <h5 class="card-title">{{ product.name }}</h5>
                 <p class="card-text">Price: ${{ product.price }}</p>
