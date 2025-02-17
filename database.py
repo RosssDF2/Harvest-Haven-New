@@ -71,13 +71,17 @@ class EnhancedDatabaseManager:
                         "name": "Discounted Carrot",
                         "price": 1.00,
                         "stock": 20,
-                        "expiry_date": (datetime.now() + timedelta(days=7)).strftime("%Y-%m-%d"),  # 7 days from now
+                        "category": "Vegetables",  # ✅ Added category
+                        "expiry_date": (datetime.now() + timedelta(days=7)).strftime("%Y-%m-%d"),
+                        "image_url": "https://gallery.yopriceville.com/var/resizes/Free-Clipart-Pictures/Vegetables-PNG/Fresh_Carrot_PNG_Clip_Art_Image.png?m=1629833771",
                     },
                     2: {
                         "name": "Discounted Tomato",
                         "price": 1.50,
                         "stock": 15,
-                        "expiry_date": (datetime.now() + timedelta(days=5)).strftime("%Y-%m-%d"),  # 5 days from now
+                        "category": "Fruits",  # ✅ Added category
+                        "expiry_date": (datetime.now() + timedelta(days=5)).strftime("%Y-%m-%d"),
+                        "image_url": "https://pngimg.com/uploads/tomato/tomato_PNG12592.png",
                     },
                 }
 
