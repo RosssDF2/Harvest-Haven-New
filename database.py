@@ -67,8 +67,18 @@ class EnhancedDatabaseManager:
 
             if "discounted_items" not in db:
                 db["discounted_items"] = {
-                    1: {"name": "Discounted Carrot", "price": 1.00, "stock": 20},
-                    2: {"name": "Discounted Tomato", "price": 1.50, "stock": 15},
+                    1: {
+                        "name": "Discounted Carrot",
+                        "price": 1.00,
+                        "stock": 20,
+                        "expiry_date": (datetime.now() + timedelta(days=7)).strftime("%Y-%m-%d"),  # 7 days from now
+                    },
+                    2: {
+                        "name": "Discounted Tomato",
+                        "price": 1.50,
+                        "stock": 15,
+                        "expiry_date": (datetime.now() + timedelta(days=5)).strftime("%Y-%m-%d"),  # 5 days from now
+                    },
                 }
 
             if "tree_types" not in db:
