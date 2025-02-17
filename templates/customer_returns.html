@@ -7,6 +7,12 @@
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+    <style>
+        #map {
+            height: 500px;
+        }
+    </style>
 </head>
 <body class="bg-light">
 <header class="bg-success text-white py-3 mb-4">
@@ -70,6 +76,144 @@
         {% endfor %}
     </div>
 </main>
+<br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br>
+
+
+<h2 style="text-align:center;">Location Collection Schedule</h2>
+<p style="text-align:center;">
+    Our collections points are available across 13 locations in Singapore. Including community centers located at Woodlands, Yishun, Choa Chu Kang, Bukit Batok, Jurong East, Boon Lay, Clementi, Ang Mo Kio, Sengkang, Toa Payoh, Geylang Serai, Kallang, Tampines Central. Please refer to the timetable come down for return collection at the allocated timing for each specific location, within 2 days.
+</p>
+
+    <table style="width: 100%; border-collapse: collapse; text-align: center;">
+        <thead>
+            <tr>
+                <th style="border: 1px solid black; padding: 8px; background-color: #f2f2f2;">Location</th>
+                <th style="border: 1px solid black; padding: 8px; background-color: #f2f2f2;">Arrival Time</th>
+                <th style="border: 1px solid black; padding: 8px; background-color: #f2f2f2;">Stay Period</th>
+                <th style="border: 1px solid black; padding: 8px; background-color: #f2f2f2;">Departure Time</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td style="border: 1px solid black; padding: 8px;">Woodlands</td>
+                <td style="border: 1px solid black; padding: 8px;">6:00 AM</td>
+                <td style="border: 1px solid black; padding: 8px;">6:00 AM - 6:30 AM</td>
+                <td style="border: 1px solid black; padding: 8px;">6:30 AM</td>
+            </tr>
+            <tr>
+                <td style="border: 1px solid black; padding: 8px;">Yishun</td>
+                <td style="border: 1px solid black; padding: 8px;">6:20 AM</td>
+                <td style="border: 1px solid black; padding: 8px;">6:20 AM - 6:50 AM</td>
+                <td style="border: 1px solid black; padding: 8px;">6:50 AM</td>
+            </tr>
+            <tr>
+                <td style="border: 1px solid black; padding: 8px;">Choa Chu Kang</td>
+                <td style="border: 1px solid black; padding: 8px;">7:15 AM</td>
+                <td style="border: 1px solid black; padding: 8px;">7:15 AM - 7:45 AM</td>
+                <td style="border: 1px solid black; padding: 8px;">7:45 AM</td>
+            </tr>
+            <tr>
+                <td style="border: 1px solid black; padding: 8px;">Bukit Batok</td>
+                <td style="border: 1px solid black; padding: 8px;">8:00 AM</td>
+                <td style="border: 1px solid black; padding: 8px;">8:00 AM - 8:30 AM</td>
+                <td style="border: 1px solid black; padding: 8px;">8:30 AM</td>
+            </tr>
+            <tr>
+                <td style="border: 1px solid black; padding: 8px;">Jurong East</td>
+                <td style="border: 1px solid black; padding: 8px;">8:50 AM</td>
+                <td style="border: 1px solid black; padding: 8px;">8:50 AM - 9:20 AM</td>
+                <td style="border: 1px solid black; padding: 8px;">9:20 AM</td>
+            </tr>
+            <tr>
+                <td style="border: 1px solid black; padding: 8px;">Boon Lay</td>
+                <td style="border: 1px solid black; padding: 8px;">9:35 AM</td>
+                <td style="border: 1px solid black; padding: 8px;">9:35 AM - 10:05 AM</td>
+                <td style="border: 1px solid black; padding: 8px;">10:05 AM</td>
+            </tr>
+            <tr>
+                <td style="border: 1px solid black; padding: 8px;">Clementi</td>
+                <td style="border: 1px solid black; padding: 8px;">10:25 AM</td>
+                <td style="border: 1px solid black; padding: 8px;">10:25 AM - 10:55 AM</td>
+                <td style="border: 1px solid black; padding: 8px;">10:55 AM</td>
+            </tr>
+            <tr>
+                <td style="border: 1px solid black; padding: 8px;">Ang Mo Kio</td>
+                <td style="border: 1px solid black; padding: 8px;">11:30 AM</td>
+                <td style="border: 1px solid black; padding: 8px;">11:30 AM - 12:00 PM</td>
+                <td style="border: 1px solid black; padding: 8px;">12:00 PM</td>
+            </tr>
+            <tr>
+                <td style="border: 1px solid black; padding: 8px;">Sengkang</td>
+                <td style="border: 1px solid black; padding: 8px;">12:25 PM</td>
+                <td style="border: 1px solid black; padding: 8px;">12:25 PM - 12:55 PM</td>
+                <td style="border: 1px solid black; padding: 8px;">12:55 PM</td>
+            </tr>
+            <tr>
+                <td style="border: 1px solid black; padding: 8px;">Toa Payoh</td>
+                <td style="border: 1px solid black; padding: 8px;">1:25 PM</td>
+                <td style="border: 1px solid black; padding: 8px;">1:25 PM - 1:55 PM</td>
+                <td style="border: 1px solid black; padding: 8px;">1:55 PM</td>
+            </tr>
+            <tr>
+                <td style="border: 1px solid black; padding: 8px;">Geylang Serai</td>
+                <td style="border: 1px solid black; padding: 8px;">2:15 PM</td>
+                <td style="border: 1px solid black; padding: 8px;">2:15 PM - 2:45 PM</td>
+                <td style="border: 1px solid black; padding: 8px;">2:45 PM</td>
+            </tr>
+            <tr>
+                <td style="border: 1px solid black; padding: 8px;">Kallang</td>
+                <td style="border: 1px solid black; padding: 8px;">3:00 PM</td>
+                <td style="border: 1px solid black; padding: 8px;">3:00 PM - 3:30 PM</td>
+                <td style="border: 1px solid black; padding: 8px;">3:30 PM</td>
+            </tr>
+            <tr>
+                <td style="border: 1px solid black; padding: 8px;">Tampines Central</td>
+                <td style="border: 1px solid black; padding: 8px;">3:55 PM</td>
+                <td style="border: 1px solid black; padding: 8px;">3:55 PM - 4:25 PM</td>
+                <td style="border: 1px solid black; padding: 8px;">4:25 PM</td>
+            </tr>
+        </tbody>
+    </table>
+
+<br>
+
+<h2 style="text-align:center;">Pin Points for Collection Points</h2>
+<div id="map"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+    // Initialize the map centered on Singapore
+    var map = L.map('map').setView([1.3521, 103.8198], 12);  // Singapore's center coordinates
+
+    // Add OpenStreetMap tile layer
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+    }).addTo(map);
+
+    // Define the locations with their names and coordinates
+    var locations = [
+        {name: 'Woodlands Community Center', lat: 1.4386, lon: 103.7850},
+        {name: 'Yishun Community Center', lat: 1.4339, lon: 103.8401},
+        {name: 'Choa Chu Kang Community Center', lat: 1.3787, lon: 103.7466},
+        {name: 'Bukit Batok Community Center', lat: 1.3504, lon: 103.7630},
+        {name: 'Jurong East Community Center', lat: 1.3331, lon: 103.7400},
+        {name: 'Boon Lay Community Center', lat: 1.3409, lon: 103.7063},
+        {name: 'Clementi Community Center', lat: 1.3185, lon: 103.7636},
+        {name: 'Ang Mo Kio Community Center', lat: 1.3704, lon: 103.8356},
+        {name: 'Sengkang Community Center', lat: 1.3981, lon: 103.8963},
+        {name: 'Toa Payoh Community Center', lat: 1.3324, lon: 103.8485},
+        {name: 'Geylang Serai Community Center', lat: 1.3110, lon: 103.8836},
+        {name: 'Kallang Community Center', lat: 1.3035, lon: 103.8740},
+        {name: 'Tampines Central Community Center', lat: 1.3513, lon: 103.9450}
+    ];
+
+    // Add markers for each community center location
+    locations.forEach(function(location) {
+        L.marker([location.lat, location.lon]).addTo(map)
+            .bindPopup(location.name)
+            .openPopup();
+    });
+</script>
 
 <!-- Bootstrap JS -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js"></script>
