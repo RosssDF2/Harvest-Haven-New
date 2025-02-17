@@ -133,45 +133,71 @@ function loadIoTDevices() {
 
 
 
-        function loadAvailableIoTDevices() {
-    const farmerId = document.getElementById('farmer-select').value;
-    if (!farmerId) return;
-
-    fetch(`/rewards/get_available_iot_devices?farmer_id=${farmerId}`)
-    .then(response => response.json())
-    .then(data => {
-        console.log("DEBUG: Received IoT Devices Data:", data);  // Debugging log
-        const deviceSelect = document.getElementById('iot-device-select');
-        deviceSelect.innerHTML = '<option value="">Select an IoT Device</option>';
-
-        if (data.devices.length === 0) {
-            console.log("No available IoT devices for selected farmer.");
-            return;
-        }
-
-        data.devices.forEach(device => {
-            deviceSelect.innerHTML += `<option value="${device.id}">${device.id} (Available)</option>`;
-        });
-    })
-    .catch(error => console.error('Error loading IoT devices:', error));
-}
-
-        document.addEventListener("DOMContentLoaded", function () {
-    checkFarmerCustomerTrees();
-});
-
-function checkFarmerCustomerTrees() {
+       function loadFarmerCustomerTrees() {
     fetch('/rewards/get_farmer_customers_trees')
     .then(response => response.json())
     .then(data => {
-        console.log("DEBUG: Farmer's Plants Data:", data);
+        console.log("DEBUG: Farmer’s Customer-Planted Trees Data:", data);
 
-        if (data.trees && data.trees.length > 0) {
-            loadFarmerCustomerTrees(data.trees); // ✅ Load customer trees directly
+        if (!data.trees || data.trees.length === 0) {
+            console.log("No customer-planted trees assigned to this farmer.");
+            return;
         }
+
+        data.trees.forEach(tree => {
+            // Find the corresponding IoT device container
+            const treeContainer = document.getElementById(`tree-container-${tree.device_id}`);
+
+            if (!treeContainer) {
+                console.warn(`IoT Device ${tree.device_id} container not found.`);
+                return;
+            }
+
+            // ✅ Ensure treeContainer allows full-width layout
+            treeContainer.style.display = "flex";
+            treeContainer.style.flexDirection = "column"; // ✅ Stack items vertically
+            treeContainer.style.width = "100%";  // ✅ Ensure full width
+
+            // ✅ Check if tree already exists to prevent duplicates
+            if (document.getElementById(`tree-box-${tree.id}`)) {
+                console.warn(`Tree ${tree.id} already exists, skipping.`);
+                return;
+            }
+
+            // ✅ Assign plant images based on phase
+            const phaseImages = {
+                "Seedling": "/static/uploads/seedling.png",
+                "Plant": "/static/uploads/plant.png",
+                "Growing Tree": "/static/uploads/growing_tree.png",
+                "Mature Tree": "/static/uploads/mature_tree.png"
+            };
+            const plantImage = phaseImages[tree.phase] || phaseImages["Seedling"];
+
+            const treeBox = document.createElement('div');
+            treeBox.className = "card mt-2 p-2 border-secondary position-relative tree-box-center w-100"; // ✅ Ensures full width
+            treeBox.style.width = "100%";  // ✅ Forces full width
+            treeBox.setAttribute("id", `tree-box-${tree.id}`);
+
+            treeBox.innerHTML = `
+                <div class="d-flex justify-content-between align-items-center w-100">
+                    <div class="flex-grow-1 text-start">  <!-- ✅ Left-aligned text -->
+                        <h6>${tree.type} - ${tree.phase}</h6>
+                        <p class="card-text"><strong>Customer:</strong> ${tree.customer_name}</p>
+                        <p class="card-text"><strong>Health:</strong> ${tree.health}%</p>
+                        <p class="card-text"><strong>Watered:</strong> ${tree.watered ? "✅ Yes" : "❌ No"}</p>
+                        <p class="card-text"><strong>Fertilized:</strong> ${tree.fertilized ? "✅ Yes" : "❌ No"}</p>
+                    </div>
+                    <img id="plant-image-${tree.id}" src="${plantImage}" alt="Plant Stage"
+                        style="width: 80px; height: auto; border-radius: 8px;">
+                </div>
+            `;
+
+            treeContainer.appendChild(treeBox);
+        });
     })
-    .catch(error => console.error('Error checking farmer plant registration:', error));
+    .catch(error => console.error('Error loading farmer customer trees:', error));
 }
+
 
 
 
@@ -195,6 +221,11 @@ function loadFarmerCustomerTrees() {
                 return;
             }
 
+            // ✅ Ensure treeContainer allows full-width layout
+            treeContainer.style.display = "flex";
+            treeContainer.style.flexDirection = "column"; // ✅ Stack items vertically
+            treeContainer.style.width = "100%";  // ✅ Ensure full width
+
             // ✅ Check if tree already exists to prevent duplicates
             if (document.getElementById(`tree-box-${tree.id}`)) {
                 console.warn(`Tree ${tree.id} already exists, skipping.`);
@@ -211,20 +242,19 @@ function loadFarmerCustomerTrees() {
             const plantImage = phaseImages[tree.phase] || phaseImages["Seedling"];
 
             const treeBox = document.createElement('div');
-treeBox.className = "card mt-2 p-2 border-secondary position-relative tree-box-center";
-
+            treeBox.className = "card mt-2 p-2 border-secondary position-relative tree-box-center w-100"; // ✅ Ensures full width
+            treeBox.style.width = "100%";  // ✅ Forces full width
             treeBox.setAttribute("id", `tree-box-${tree.id}`);
 
             treeBox.innerHTML = `
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
+                <div class="d-flex justify-content-between align-items-center w-100">
+                    <div class="flex-grow-1">
                         <h6>${tree.type} - ${tree.phase}</h6>
                         <p class="card-text"><strong>Customer:</strong> ${tree.customer_name}</p>
                         <p class="card-text"><strong>Health:</strong> ${tree.health}%</p>
                         <p class="card-text"><strong>Watered:</strong> ${tree.watered ? "✅ Yes" : "❌ No"}</p>
                         <p class="card-text"><strong>Fertilized:</strong> ${tree.fertilized ? "✅ Yes" : "❌ No"}</p>
                     </div>
-                    <!-- ✅ Plant Image on the Right Side -->
                     <img id="plant-image-${tree.id}" src="${plantImage}" alt="Plant Stage"
                         style="width: 80px; height: auto; border-radius: 8px;">
                 </div>
@@ -235,6 +265,7 @@ treeBox.className = "card mt-2 p-2 border-secondary position-relative tree-box-c
     })
     .catch(error => console.error('Error loading farmer customer trees:', error));
 }
+
 
 
 
@@ -286,38 +317,42 @@ function createCustomerTreeBox(treeId, treeType, customerName, deviceId, health,
 <!-- Header Section -->
 <header class="bg-white text-dark py-3 shadow-sm">
     <div class="container d-flex justify-content-between align-items-center">
-        <!-- Logo -->
+        <!-- Left Section: Clickable Logo -->
         <div class="d-flex align-items-center">
             <a href="{{ url_for('profile.profile') }}" class="d-flex align-items-center text-decoration-none">
-                <img src="{{ url_for('static', filename='uploads/Harvest Haven.png') }}" alt="Harvest Haven Logo" style="width: 80px; height: auto;">
+                <img src="{{ url_for('static', filename='uploads/Harvest Haven.png') }}" alt="Harvest Haven Logo" class="logo-img">
             </a>
         </div>
 
-        <!-- Navigation Bar -->
+        <!-- Center Section: Navigation Bar -->
         <div class="flex-grow-1 text-center">
             <ul class="nav justify-content-center">
                 {% for option in nav_options %}
                 <li class="nav-item">
-                    <a class="nav-link text-dark" href="{{ option.url }}">{{ option.name }}</a>
+                    <a class="nav-link" href="{{ option.url }}">{{ option.name }}</a>
                 </li>
                 {% endfor %}
             </ul>
         </div>
 
-        <!-- Dropdown Button -->
+        <!-- Right Section: Dropdown -->
         <div class="dropdown">
-            <button class="btn btn-success dropdown-toggle" type="button" id="dropdownMenuButton" data-bs-toggle="dropdown" aria-expanded="false">
+            <button class="btn dropdown-toggle" type="button" id="dropdownMenuButton" data-bs-toggle="dropdown" aria-expanded="false">
                 Menu
             </button>
             <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="dropdownMenuButton">
-                <li><a class="dropdown-item" href="{{ url_for('profile.profile') }}">Profile</a></li>
-                <li><a class="dropdown-item" href="{{ url_for('rewards.rewards') }}">Rewards</a></li>
-                <li><hr class="dropdown-divider"></li>
-                <li><a class="dropdown-item text-danger" href="{{ url_for('profile.logout') }}">Logout</a></li>
+                {% for option in dropdown_options %}
+                    {% if option.url %}
+                        <li><a class="dropdown-item {% if option.class %}{{ option.class }}{% endif %}" href="{{ option.url }}">{{ option.name }}</a></li>
+                    {% else %}
+                        <li><hr class="dropdown-divider"></li>
+                    {% endif %}
+                {% endfor %}
             </ul>
         </div>
     </div>
 </header>
+
 
 
 
