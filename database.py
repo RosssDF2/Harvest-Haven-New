@@ -27,18 +27,58 @@ class EnhancedDatabaseManager:
 
             print("Database initialized without resetting existing values.")
 
+             def initialize_database(self):
+        """Initialize the database with default values."""
+        with shelve.open(self.db_name, writeback=True) as db:
+            # Default users
+            if "users" not in db:
+                db["users"] = {
+                    "customer1": {
+                        "name": "Customer 1",
+                        "email": "customer1@example.com",
+                        "role": "customer",
+                        "points": 100,
+                        "balance": 200.0,
+                        "password": "customer123",
+                    },
+                    "farmer1": {
+                        "name": "Farmer 1",
+                        "email": "farmer1@example.com",
+                        "role": "farmer",
+                        "points": 200,
+                        "balance": 500.0,
+                        "password": "farmer123",
+                    },
+                    "farmer2": {
+                        "name": "Farmer 2",
+                        "email": "farmer2@example.com",
+                        "role": "farmer",
+                        "points": 150,
+                        "balance": 300.0,
+                        "password": "farmer123",
+                    },
+                }
+
             # Default products
             if "products" not in db:
                 db["products"] = {
-                    1: {"name": "Carrot", "price": 1.50, "quantity": 100, "category": "Vegetables",
-                        "image_url": "placeholder.png", "uploaded_by": "farmer1", "farmer_id": "farmer1"},
-                    2: {"name": "Tomato", "price": 2.00, "quantity": 50, "category": "Vegetables",
-                        "image_url": "placeholder.png", "uploaded_by": "farmer2", "farmer_id": "farmer2"},
+                    1: {
+                        "name": "Carrot",
+                        "price": 1.50,
+                        "quantity": 100,
+                        "category": "Vegetables",
+                        "image_url": "placeholder.png",
+                        "uploaded_by": "farmer1",  # Add the farmer's username
+                    },
+                    2: {
+                        "name": "Tomato",
+                        "price": 2.00,
+                        "quantity": 50,
+                        "category": "Vegetables",
+                        "image_url": "placeholder.png",
+                        "uploaded_by": "farmer2",
+                    },
                 }
-                for product_id, product in db["products"].items():
-                    if "farmer_id" not in product:
-                        product["farmer_id"] = product.get("uploaded_by", "unknown_farmer")  # Assign dynamically
-                db["products"] = db["products"]  # Save changes
 
                 # Default ownership
                 if "ownership" not in db:
