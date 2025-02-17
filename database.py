@@ -591,4 +591,32 @@ class EnhancedDatabaseManager:
         with shelve.open(self.db_name) as db:
             return db.get("discounted_items", {})
 
+    def log_report(self, user_id, product_id, customer_id, issue):
+        """
+        Logs a report for a return issue.
+
+        :param user_id: ID of the farmer who is reporting the issue
+        :param product_id: ID of the product being reported
+        :param customer_id: ID of the customer who made the return
+        :param issue: Description of the issue
+        """
+        # Open the database (shelve or whatever you're using)
+        with shelve.open("central_database.db", writeback=True) as db:
+            # Get existing reports or create an empty dictionary if none exists
+            reports = db.get("return_reports", {})
+
+            # Create a new entry for the report under the customer's ID
+            if customer_id not in reports:
+                reports[customer_id] = []
+
+            # Add the new report
+            reports[customer_id].append({
+                "product_id": product_id,
+                "issue": issue,
+                "reported_by": user_id,  # Who reported the issue
+                "status": "reported",     # Optional: You can track the status of the report
+            })
+
+            # Save the reports back into the database
+            db["return_reports"] = reports
 
