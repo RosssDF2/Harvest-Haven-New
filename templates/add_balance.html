@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Add Balance & Points</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body class="bg-light">
+
+<!-- ✅ Navigation Bar -->
+<header class="bg-white text-dark py-3 shadow-sm">
+    <div class="container d-flex justify-content-between align-items-center">
+        <div class="d-flex align-items-center">
+            <a href="{{ url_for('profile.profile') }}" class="d-flex align-items-center text-decoration-none">
+                <img src="{{ url_for('static', filename='uploads/Harvest Haven.png') }}" alt="Harvest Haven Logo" class="logo-img">
+            </a>
+            <div class="ms-3">
+                <p class="mb-0 fs-6">
+                    <a href="{{ url_for('rewards.add_balance') }}" class="fw-bold text-success text-decoration-none">
+                        Balance: ${{ user_balance }}
+                    </a>
+                </p>
+                <p class="mb-0 fs-6">Points: <span class="fw-bold text-warning">{{ user_points }}</span></p>
+            </div>
+        </div>
+
+        <div class="flex-grow-1 text-center">
+            <ul class="nav justify-content-center">
+                {% for option in nav_options %}
+                <li class="nav-item">
+                    <a class="nav-link" href="{{ option.url }}">{{ option.name }}</a>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+
+        <div class="d-flex align-items-center">
+            <a href="/checkout/" class="text-dark me-3">
+                <img src="{{ url_for('static', filename='icons/cart.png') }}" alt="Cart" style="width: 30px; height: 30px;">
+            </a>
+
+            <div class="dropdown">
+                <button class="btn dropdown-toggle" type="button" id="dropdownMenuButton" data-bs-toggle="dropdown" aria-expanded="false">
+                    Menu
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="dropdownMenuButton">
+                    {% for option in dropdown_options %}
+                        {% if option.url %}
+                            <li><a class="dropdown-item {% if option.class %}{{ option.class }}{% endif %}" href="{{ option.url }}">{{ option.name }}</a></li>
+                        {% else %}
+                            <li><hr class="dropdown-divider"></li>
+                        {% endif %}
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+    </div>
+</header>
+
+<div class="header-divider"></div>
+
+<div class="container text-center mt-5">
+    <h1 class="text-success">Add Balance & Points</h1>
+    <p class="fs-5">Current Balance: <span class="fw-bold text-success">${{ user_balance }}</span></p>
+    <p class="fs-5">Current Points: <span class="fw-bold text-warning">{{ user_points }}</span></p>
+
+    {% if error %}
+    <div class="alert alert-danger">
+        <h5>{{ error }}</h5>
+    </div>
+    {% endif %}
+
+    {% if success %}
+    <div class="alert alert-success p-4 shadow">
+        <h3>{{ success }}</h3>
+    </div>
+    <a href="{{ url_for('profile.profile') }}" class="btn btn-success mt-3">Back to Profile</a>
+    {% endif %}
+
+    <!-- ✅ Buy Balance Section -->
+    <h3 class="mt-4">Buy Balance</h3>
+    <div class="row justify-content-center mt-3">
+        {% for amount in [50, 100, 200] %}
+        <div class="col-md-3">
+            <div class="card p-3 shadow-sm">
+                <h3 class="text-success">${{ amount }}</h3>
+                <form action="{{ url_for('rewards.balance_checkout', amount=amount) }}" method="POST">
+                    <button type="submit" class="btn btn-success w-100">Buy</button>
+                </form>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- ✅ Buy Points Section -->
+    <h3 class="mt-5">Buy Points</h3>
+    <div class="row justify-content-center mt-3">
+        {% for points, cost in [(200, 2), (1000, 10), (5000, 50)] %}
+        <div class="col-md-3">
+            <div class="card p-3 shadow-sm">
+                <h3 class="text-warning">{{ points }} Points</h3>
+                <form action="{{ url_for('rewards.add_points', points_amount=points) }}" method="POST">
+                    <button type="submit" class="btn btn-warning w-100">Buy for ${{ cost }}</button>
+                </form>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

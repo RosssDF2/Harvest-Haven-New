@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Farmer Orders</title>
+</head>
+<body class="bg-light">
+    <!-- Header Section -->
+    <header class="bg-white text-dark py-3 shadow-sm">
+        <div class="container d-flex justify-content-between align-items-center">
+            <!-- Left Section: Clickable Logo, Balance, Points -->
+            <div class="d-flex align-items-center">
+                <!-- Clickable Logo -->
+                <a href="{{ url_for('profile.profile') }}" class="d-flex align-items-center text-decoration-none">
+                    <img src="{{ url_for('static', filename='uploads/Harvest Haven.png') }}" alt="Harvest Haven Logo" class="logo-img">
+                </a>
+
+                <!-- User Stats -->
+                <div class="ms-3">
+                    <p class="mb-0 fs-6">
+                        <a href="{{ url_for('rewards.add_balance') }}" class="fw-bold text-success text-decoration-none">
+                            Balance: ${{ user_balance }}
+                        </a>
+                    </p>
+                    <p class="mb-0 fs-6">Points: <span class="fw-bold text-warning">{{ user_points }}</span></p>
+                </div>
+            </div>
+
+            <!-- Center Section: Navigation Bar -->
+            <div class="flex-grow-1 text-center">
+                <ul class="nav justify-content-center">
+                    {% for option in nav_options %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ option.url }}">{{ option.name }}</a>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+
+            <!-- Right Section: Cart Icon & Dropdown -->
+            <div class="d-flex align-items-center">
+                <!-- ✅ Cart Icon for Checkout -->
+                <a href="/checkout/" class="text-dark me-3">
+                    <img src="{{ url_for('static', filename='icons/cart.png') }}" alt="Cart" style="width: 30px; height: 30px;">
+                </a>
+
+                <!-- Dropdown Button -->
+                <div class="dropdown">
+                    <button class="btn dropdown-toggle" type="button" id="dropdownMenuButton" data-bs-toggle="dropdown" aria-expanded="false">
+                        Menu
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="dropdownMenuButton">
+                        {% for option in dropdown_options %}
+                            {% if option.url %}
+                                <li><a class="dropdown-item {% if option.class %}{{ option.class }}{% endif %}" href="{{ option.url }}">{{ option.name }}</a></li>
+                            {% else %}
+                                <li><hr class="dropdown-divider"></li>
+                            {% endif %}
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- ✅ Divider Bar -->
+    <div class="header-divider"></div>
+
+    <!-- ✅ Centered Content Container -->
+    <main class="container">
+        <div class="row justify-content-center">
+            <div class="col-md-8">
+                <!-- ✅ Page Title with Balance -->
+                <h1 class="text-success mb-4 text-center">
+                    Plant a Future
+                    <span id="user-balance" class="badge bg-primary">Balance: ${{ user_balance }}</span>
+                </h1>
+
+                <!-- Tree Planting Form -->
+                <div class="card mb-4">
+                    <div class="card-header bg-success text-white">Plant a New Tree</div>
+                    <div class="card-body">
+                        <form id="plant-tree-form">
+                            <!-- Step 1: Select a Registered Farmer -->
+                            <label for="farmer-select" class="form-label">Select a Registered Farmer:</label>
+                            <select id="farmer-select" class="form-select mb-2" required>
+                                <option value="">Loading Farmers...</option>
+                            </select>
+
+                            <!-- Step 2: Select an Available IoT Device (Appears After Selecting a Farmer) -->
+                            <label for="iot-device-select" class="form-label">Select an Available IoT Device:</label>
+                            <select id="iot-device-select" class="form-select mb-2" required>
+                                <option value="">Select a Farmer First</option>
+                            </select>
+
+                            <!-- Step 3: Select Tree Type -->
+                            <label for="tree-type" class="form-label">Select Tree Type:</label>
+                            <select id="tree-type" class="form-select mb-2" required>
+                                {% for tree_type, details in tree_types.items() %}
+                                <option value="{{ tree_type }}">
+                                    {{ details.name }} - Cost: ${{ details.price }}
+                                </option>
+                                {% endfor %}
+                            </select>
+
+                            <!-- Submit Button -->
+                            <button id="plant-tree-btn" type="button" class="btn btn-success w-100">Plant Tree</button>
+                            <p id="planting-status" class="text-success mt-2"></p> <!-- ✅ Status Message -->
+                        </form>
+                    </div>
+                </div>
+
+                <!-- ✅ Planted Trees Section -->
+                <h3 class="text-primary text-center">Your Planted Trees</h3>
+                <div id="customer-trees">
+                    <!-- Planted Trees will be loaded dynamically -->
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- ✅ Include Bootstrap JS for Dropdown Functionality -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js"></script>
+
+</body>
+</html>
+

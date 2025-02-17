@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel - IoT Failure Simulation</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script>
+        function triggerFailure(deviceId) {
+            const failureType = document.getElementById(`failure-select-${deviceId}`).value;
+
+            fetch('/admin/trigger_failure', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                },
+                body: `device_id=${deviceId}&failure_type=${failureType}`
+            })
+            .then(response => response.json())
+            .then(data => {
+                alert(data.message || data.error);
+                loadIoTDevices(); // Refresh IoT device status
+            })
+            .catch(error => console.error('Error:', error));
+        }
+
+        function loadIoTDevices() {
+    fetch('/rewards/get_farmer_iot_devices')
+    .then(response => response.json())
+    .then(data => {
+        console.log("DEBUG: IoT Devices Data:", data);
+        if (data.error) {
+            console.error("Error fetching IoT devices:", data.error);
+            return;
+        }
+
+        const deviceContainer = document.getElementById('iot-devices');
+        deviceContainer.innerHTML = ''; // Clear existing devices
+
+        if (!data.devices || data.devices.length === 0) {
+            deviceContainer.innerHTML = "<p>No IoT devices registered yet.</p>";
+            return;
+        }
+
+        data.devices.forEach(device => {
+            const deviceBox = document.createElement('div');
+            deviceBox.className = "card mb-3";
+            deviceBox.innerHTML = `
+                <div class="card-body">
+                    <h5 class="card-title">Device ID: ${device.id}</h5>
+                    <p class="card-text">
+                        Status:
+                        <span class="text-${device.status === 'Active' ? 'success' : 'danger'}">
+                            ${device.status}
+                        </span>
+                    </p>
+                    <p class="card-text">Assigned to: ${device.assigned_user || "Available for Planting"}</p>
+                    <div id="tree-container-${device.id}">
+                        <!-- Customer trees assigned to this IoT device will appear here -->
+                    </div>
+                </div>
+            `;
+            deviceContainer.appendChild(deviceBox);
+        });
+
+        // Load customer-planted trees and place them inside the correct IoT device box
+        loadFarmerCustomerTrees();
+    })
+    .catch(error => console.error('Error loading IoT devices:', error));
+}
+    </script>
+</head>
+<body class="bg-light">
+    <div class="container mt-4">
+        <h1 class="text-danger">Admin Panel - IoT Failure Simulation</h1>
+        <p class="text-muted">Use this panel to manually trigger failures in IoT devices.</p>
+
+        <div id="iot-devices">
+            <!-- IoT Devices will be loaded here -->
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
