@@ -81,11 +81,29 @@
                         <input type="hidden" name="product_id" value="{{ return_item.id }}">
                         <input type="hidden" name="customer_id" value="{{ return_item.customer_id }}">
                         <input type="hidden" name="product_name" value="{{ return_item.product_name }}">
-                        <div class="d-flex justify-content-between">
-                            <button type="submit" name="action" value="approve" class="btn btn-success">Approve</button>
-                            <button type="submit" name="action" value="reject" class="btn btn-danger">Reject</button>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <!-- Approve button -->
+                            <button type="submit" name="action" value="approve" class="btn btn-success w-100 mx-1">Approve</button>
+
+                            <!-- Reject button -->
+                            <button type="submit" name="action" value="reject" class="btn btn-danger w-100 mx-1">Reject</button>
+
+                            <!-- Report Issue Button -->
+                            <button type="button" class="btn btn-warning w-100 mx-1" onclick="toggleReportForm('{{ return_item.id }}')">Report</button>
                         </div>
                     </form>
+
+                    <!-- Hidden Report Form -->
+                    <form action="{{ url_for('returns.report_return') }}" method="POST" id="report-form-{{ return_item.id }}" class="mt-2 d-none">
+                        <input type="hidden" name="product_id" value="{{ return_item.id }}">
+                        <input type="hidden" name="customer_id" value="{{ return_item.customer_id }}">
+                        <div class="mb-2">
+                            <label for="issue-{{ return_item.id }}" class="form-label"><strong>Report Issue:</strong></label>
+                            <textarea name="issue" class="form-control" rows="2" required></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-danger btn-sm">Submit Report</button>
+                    </form>
+
                     {% elif return_item.status == "approved" %}
                     <p class="text-success fw-bold">✅ Approved</p>
                     {% elif return_item.status == "rejected" %}
@@ -105,6 +123,7 @@
 
 
 
+
 </main>
 
 <script>
@@ -114,6 +133,22 @@ document.addEventListener("DOMContentLoaded", function() {
         alerts.forEach(alert => alert.remove());
     }, 5000); // Keep alerts for 5 seconds
 });
+
+    document.addEventListener("DOMContentLoaded", function() {
+    setTimeout(function() {
+        let alerts = document.querySelectorAll(".alert");
+        alerts.forEach(alert => alert.remove());
+    }, 5000); // Keep alerts for 5 seconds
+});
+
+function toggleReportForm(productId) {
+    let form = document.getElementById("report-form-" + productId);
+    if (form.classList.contains("d-none")) {
+        form.classList.remove("d-none");
+    } else {
+        form.classList.add("d-none");
+    }
+}
 </script>
 
  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js"></script>
