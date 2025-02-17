@@ -9,21 +9,34 @@ def home():
     """Main product page with category filtering."""
     user_id = session.get('user_id')
     user_role = session.get('role')
-    nav_options = db_manager.get_nav_options(user_role)
+    user = db_manager.get_users().get(user_id, {})
 
-    # Get all products
+    # ✅ Get balance and points (For Customers)
+    user_balance = user.get("balance", 0)
+    user_points = user.get("points", 0)
+
+    # ✅ Get navigation options for the role
+    nav_data = db_manager.get_nav_options(user_role)
+    nav_options = nav_data["nav"]
+    dropdown_options = nav_data["dropdown"]
+
+    # ✅ Get all products
     products = db_manager.get_products()
 
-    # Get selected category from query parameters
+    # ✅ Get selected category from query parameters
     selected_category = request.args.get('category', '')
 
-    # Convert products dictionary into a list with IDs
+    # ✅ Convert products dictionary into a list with IDs and add farmer name
     products_with_ids = [
-        {"id": product_id, **product_data}
+        {
+            "id": product_id,
+            **product_data,
+            "uploaded_by": db_manager.get_users().get(product_data.get("farmer_id"), {}).get("name", "Unknown Farmer")
+        }
         for product_id, product_data in products.items()
     ]
 
-    # Apply category filtering if a category is selected
+    # ✅ Apply category filtering if a category is selected
     if selected_category and selected_category != "All":
         products_with_ids = [product for product in products_with_ids if product["category"] == selected_category]
 
@@ -32,56 +45,21 @@ def home():
             "customer_products.html",
             products=products_with_ids,
             nav_options=nav_options,
+            dropdown_options=dropdown_options,
+            user_balance=user_balance,
+            user_points=user_points,
             selected_category=selected_category
         )
-
     elif user_role == 'farmer':
-        # ✅ Prevent KeyError if 'farmer_id' is missing
-        owned_products = [
-            product for product in products_with_ids
-            if product.get("farmer_id", "unknown_farmer") == user_id
-        ]
+        # ✅ Show only the logged-in farmer's products
+        owned_products = [product for product in products_with_ids if product.get("farmer_id") == user_id]
         return render_template(
             "farmer_products.html",
             products=owned_products,
-            nav_options=nav_options
-        )
-    user_id = session.get('user_id')
-    user_role = session.get('role')
-    nav_options = db_manager.get_nav_options(user_role)
-
-    # Get all products
-    products = db_manager.get_products()
-
-    # Get selected category from query parameters
-    selected_category = request.args.get('category', '')
-
-    # Convert products dictionary into a list with IDs
-    products_with_ids = [
-        {"id": product_id, **product_data}
-        for product_id, product_data in products.items()
-    ]
-
-    # Apply category filtering if a category is selected
-    if selected_category and selected_category != "All":
-        products_with_ids = [product for product in products_with_ids if product["category"] == selected_category]
-
-    if user_role == 'customer':
-        return render_template(
-            "customer_products.html",
-            products=products_with_ids,
             nav_options=nav_options,
-            selected_category=selected_category  # ✅ Pass the selected category to the template
+            dropdown_options=dropdown_options
         )
 
-    elif user_role == 'farmer':
-        # Show only the logged-in farmer's products
-        owned_products = [product for product in products_with_ids if product["farmer_id"] == user_id]
-        return render_template(
-            "farmer_products.html",
-            products=owned_products,
-            nav_options=nav_options
-        )
 
 @product_bp.route('/add_product', methods=['POST'])
 def add_product():
@@ -160,11 +138,12 @@ def delete_product(product_id):
 
 @product_bp.route('/add_to_cart/<int:product_id>', methods=['POST'])
 def add_to_cart(product_id):
-    """Add a product to the customer's cart."""
+    """Add a product to the customer's cart and update stock immediately."""
     if session.get('role') != 'customer':
         flash("Access denied! Only customers can add to cart.", "error")
         return redirect(url_for('products.home'))
 
+    db_manager = EnhancedDatabaseManager()
     products = db_manager.get_products()
     product = products.get(product_id)
 
@@ -172,13 +151,32 @@ def add_to_cart(product_id):
         flash("Product not found.", "error")
         return redirect(url_for('products.home'))
 
-    # Add the product to the customer's cart in the session
-    cart = session.get('cart', [])
-    cart.append({"id": product_id, "name": product['name'], "price": product['price'], "quantity": 1})
-    session['cart'] = cart
+    # ✅ Ensure enough stock is available
+    if product["quantity"] < 1:
+        flash("Error: Product is out of stock.", "error")
+        return redirect(url_for('products.home'))
 
+    # ✅ Check if product is already in the cart
+    cart = session.get('cart', [])
+    existing_item = next((item for item in cart if item['id'] == product_id), None)
+
+    if existing_item:
+        if product["quantity"] < (existing_item["quantity"] + 1):  # ✅ Prevent over-purchase
+            flash("Error: Not enough stock available.", "error")
+            return redirect(url_for('products.home'))
+        existing_item["quantity"] += 1  # ✅ Increase cart quantity
+    else:
+        cart.append({"id": product_id, "name": product['name'], "price": product['price'], "quantity": 1})
+
+    # ✅ Reduce stock immediately
+    product["quantity"] -= 1
+    products[product_id] = product
+    db_manager.save_products(products)  # ✅ Save updated stock
+
+    session['cart'] = cart
     flash(f"'{product['name']}' added to cart!", "success")
     return redirect(url_for('products.home'))
+
 
 @product_bp.route('/filter_products', methods=['GET'])
 def filter_products():

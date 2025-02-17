@@ -24,14 +24,33 @@ def update_cart(product_id):
 
 @checkout_bp.route('/checkout/remove_from_cart/<int:product_id>', methods=['POST'])
 def remove_from_cart(product_id):
-    """Remove product from the cart."""
-    user = User(session.get('user_id'), session.get('role'))
-    user.remove_from_cart(product_id)
+    """Remove product from the cart and restore stock immediately."""
+    if session.get('role') != 'customer':
+        flash("Access denied! Only customers can remove items.", "error")
+        return redirect(url_for('checkout.checkout'))
 
-    flash("Item removed from cart.", "success")
+    db_manager = EnhancedDatabaseManager()
+    products = db_manager.get_products()
+    cart = session.get('cart', [])
+
+    item_to_remove = next((item for item in cart if item['id'] == product_id), None)
+
+    if not item_to_remove:
+        flash("Error: Item not found in cart.", "error")
+        return redirect(url_for('checkout.checkout'))
+
+    # ✅ Restore stock when removing from cart
+    if product_id in products:
+        products[product_id]["quantity"] += item_to_remove["quantity"]
+        db_manager.save_products(products)  # ✅ Save updated stock
+
+    # ✅ Remove from cart
+    cart = [item for item in cart if item['id'] != product_id]
+    session['cart'] = cart
+
+    flash(f"Removed {item_to_remove['name']} from cart. Stock restored.", "success")
     return redirect(url_for('checkout.checkout'))
 
-from flask import jsonify
 
 @checkout_bp.route('/process_checkout', methods=['POST'])
 def process_checkout():
@@ -78,6 +97,12 @@ def process_checkout():
         flash("Your card has expired.", "error")
         return redirect(url_for('checkout.checkout'))
 
+    # ✅ Ensure cart is initialized before using it
+    cart = session.get('cart', [])  # ⬅️ FIX: Use .get() to avoid KeyError
+    if not cart:
+        flash("Your cart is empty. Please add items before checking out.", "error")
+        return redirect(url_for('checkout.checkout'))
+
     # Store billing info and cart in session for confirmation page
     session['billing_info'] = {
         'name': name,
@@ -85,14 +110,23 @@ def process_checkout():
         'postal_code': postal_code,
         'card': f"**** **** **** {card[-4:]}"  # Masked card number
     }
-    session['cart_items'] = session.get('cart', [])  # Save cart before clearing it
-    session['total_price'] = sum(item['price'] * item['quantity'] for item in session['cart'])
+    session['cart_items'] = cart[:]  # ✅ Ensure cart items are copied before clearing
+    session['total_price'] = sum(item['price'] * item['quantity'] for item in cart)
 
-    # Save transactions to database
+    # ✅ Save transactions to database
     db_manager = EnhancedDatabaseManager()
     user_id = session.get('user_id')
-    cart = session.get('cart', [])
 
+    # ✅ Update ownership so products appear in the returns section
+    ownership = db_manager.get_ownership(user_id)
+    ownership.setdefault("products", [])  # Ensure "products" key exists
+    for item in cart:
+        for _ in range(item["quantity"]):  # Add one entry per quantity purchased
+            ownership["products"].append(item["id"])
+
+    db_manager.save_ownership(user_id, ownership)  # Save updated ownership
+
+    # ✅ Save the transaction
     for item in cart:
         db_manager.add_transaction(
             user_id=user_id,
@@ -101,10 +135,12 @@ def process_checkout():
             quantity=item["quantity"]
         )
 
-    session['cart'] = []  # Clear cart after checkout
+    session.pop('cart', None)  # ✅ Clear cart properly after checkout
 
     flash("Checkout successful!", "success")
     return redirect(url_for('checkout.confirmation'))
+
+
 
 @checkout_bp.route('/')
 def checkout():
@@ -115,7 +151,19 @@ def checkout():
     users = EnhancedDatabaseManager().get_users()
     balance = users.get(user_id, {}).get("balance", 0)
 
-    return render_template('customer_checkout.html', cart_items=cart, total=total, user_balance=balance)
+    # ✅ Get navigation options for customers
+    nav_data = EnhancedDatabaseManager().get_nav_options('customer')
+    nav_options = nav_data["nav"]
+    dropdown_options = nav_data["dropdown"]
+
+    return render_template(
+        'customer_checkout.html',
+        cart_items=cart,
+        total=total,
+        user_balance=balance,
+        nav_options=nav_options,  # ✅ Added navigation
+        dropdown_options=dropdown_options  # ✅ Ensures dropdown menu works
+    )
 
 
 @checkout_bp.route('/confirmation')
@@ -129,11 +177,18 @@ def confirmation():
         flash("No checkout information found. Redirecting back to checkout.", "error")
         return redirect(url_for('checkout.checkout'))
 
+    # ✅ Get navigation options for customers
+    nav_data = EnhancedDatabaseManager().get_nav_options('customer')
+    nav_options = nav_data["nav"]
+    dropdown_options = nav_data["dropdown"]
+
     return render_template(
         'customer_confirmation.html',
         billing_info=billing_info,
         cart_items=cart_items,
-        total=total_price
+        total=total_price,
+        nav_options=nav_options,  # ✅ Ensures header works
+        dropdown_options=dropdown_options  # ✅ Fix dropdown issue
     )
 
 
@@ -164,10 +219,10 @@ class User:
         session['cart'] = cart
 
     def remove_from_cart(self, product_id):
-        """Remove a product from the user's cart."""
+        """Remove a product from the cart and update session."""
         cart = session.get('cart', [])
         cart = [item for item in cart if item['id'] != product_id]
-        session['cart'] = cart
+        session['cart'] = cart  # ✅ Ensure session cart updates
 
     def update_cart_quantity(self, product_id, quantity):
         """Update the quantity of a product in the cart."""

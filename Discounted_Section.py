@@ -24,12 +24,18 @@ def allowed_file(filename):
 def home():
     """Main discounted products page with filtering and search."""
     user_role = session.get('role')
-    user_id = session.get('user_id')
-    nav_options = db_manager.get_nav_options(user_role)
+    user_id = session.get('user_id')  # Get current logged-in user
+    user = db_manager.get_users().get(user_id, {})
 
     remove_expired_products()
     discounted_items = db_manager.get_all_items()
 
+    # ✅ Get navigation options
+    nav_data = db_manager.get_nav_options(user_role)
+    nav_options = nav_data["nav"]
+    dropdown_options = nav_data["dropdown"]
+
+    # ✅ If the user is a farmer, only show their own products
     if user_role == 'farmer':
         discounted_items = {
             item_id: item for item_id, item in discounted_items.items()
@@ -51,16 +57,20 @@ def home():
             if search_query in item.get('name', '').lower()
         }
 
-    # Ensure stock is never displayed as negative
-    for item in discounted_items.values():
-        item['stock'] = max(0, item.get('stock', 0))  # Ensure stock is at least 0
-
     discounted_items_with_ids = [
         {"id": item_id, **item_data} for item_id, item_data in discounted_items.items()
     ]
 
     template = "customer_discounted_products.html" if user_role == 'customer' else "farmer_discounted_products.html"
-    return render_template(template, items=discounted_items_with_ids, nav_options=nav_options)
+    return render_template(
+        template,
+        items=discounted_items_with_ids,
+        nav_options=nav_options,
+        dropdown_options=dropdown_options,
+        user_balance=user.get("balance", 0) if user_role == "customer" else None,
+        user_points=user.get("points", 0) if user_role == "customer" else None
+    )
+
 
 @discounted_bp.route('/add_discounted', methods=['POST'])
 def add_discounted():
@@ -234,14 +244,6 @@ def buy_discounted(item_id):
         flash("Product not found.", "error")
         return redirect(url_for('discounted.home'))
 
-    if quantity <= 0:
-        flash("Invalid quantity. Please enter a valid amount.", "error")
-        return redirect(url_for('discounted.home'))
-
-    if item['stock'] < quantity:
-        flash("Insufficient stock available.", "error")
-        return redirect(url_for('discounted.home'))
-
     total_price = item['price'] * quantity
     user_id = session.get('user_id')
     user_balance = db_manager.get_users().get(user_id, {}).get("balance", 0)
@@ -250,14 +252,12 @@ def buy_discounted(item_id):
         flash("Insufficient balance to complete the purchase.", "error")
         return redirect(url_for('discounted.home'))
 
-    # Ensure stock never goes negative
-    new_stock = item['stock'] - quantity
-    if new_stock < 0:
-        flash("Not enough stock available for this purchase.", "error")
+    if item['stock'] < quantity:
+        flash("Insufficient stock available.", "error")
         return redirect(url_for('discounted.home'))
 
     # Update the item stock
-    item['stock'] = new_stock
+    item['stock'] -= quantity
     discounted_items[item_id] = item
     db_manager.save_items(discounted_items)
 
@@ -265,5 +265,21 @@ def buy_discounted(item_id):
     db_manager.adjust_user_balance(user_id, -total_price)
     db_manager.add_transaction(user_id, item['name'], total_price, quantity)
 
-    flash(f"Successfully purchased {quantity}x '{item['name']}' for ${total_price:.2f}.", "success")
+    # ✅ Update session cart to include discounted product
+    cart = session.get('cart', [])
+    existing_item = next((i for i in cart if i['id'] == item_id), None)
+
+    if existing_item:
+        existing_item['quantity'] += quantity
+    else:
+        cart.append({
+            "id": item_id,
+            "name": item['name'],
+            "price": item['price'],
+            "quantity": quantity
+        })
+
+    session['cart'] = cart  # ✅ Save updated cart in session
+
+    flash(f"Added {quantity}x '{item['name']}' to cart!", "success")
     return redirect(url_for('discounted.home'))

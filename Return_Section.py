@@ -14,15 +14,15 @@ def returns():
 
     user_id = session.get('user_id')
     ownership = db_manager.get_ownership(user_id)
-    owned_products_ids = ownership.get("products", [])
+    owned_products_ids = ownership.get("products", [])  # ✅ Ensure this is updated in checkout
     returned_items = ownership.get("returns", {})
     all_products = db_manager.get_products()
 
     grouped_products = {}
-    for product_id in set(owned_products_ids):
+    for product_id in owned_products_ids:
         if product_id in all_products:
             product_name = all_products[product_id]["name"]
-            total_purchased = owned_products_ids.count(product_id)
+            total_purchased = owned_products_ids.count(product_id)  # ✅ Count occurrences for accurate quantity
             total_returned = returned_items.get(product_id, 0)
             remaining_quantity = total_purchased - total_returned
 
@@ -35,12 +35,19 @@ def returns():
                     }
                 grouped_products[product_name]["remaining"] += remaining_quantity
 
-    nav_options = db_manager.get_nav_options(session.get('role'))
+    # ✅ Fetch Navigation Data
+    nav_data = db_manager.get_nav_options(session.get('role'))
+    nav_options = nav_data["nav"]
+    dropdown_options = nav_data["dropdown"]
+
     return render_template(
         "customer_returns.html",
         products=list(grouped_products.values()),
         nav_options=nav_options,
+        dropdown_options=dropdown_options,  # ✅ Ensure dropdown menu loads
     )
+
+
 
 
 
@@ -85,20 +92,25 @@ def farmer_returns():
     farmer_id = session.get('user_id')
     returns = db_manager.get_farmer_notifications(farmer_id)  # Fetch pending returns for this farmer
 
-    # Debugging: Print return list after fetching
-    print(f"DEBUG: Returns fetched for farmer {farmer_id}:", returns)
-
-    # Only show returns that are still pending
+    # ✅ Ensure Only Pending Returns Are Fetched
     pending_returns = [r for r in returns if r.get("status") == "pending"]
 
+    # ✅ Debugging Logs
+    print(f"DEBUG: Returns fetched for farmer {farmer_id}:", returns)
     print("DEBUG: Final Returns List Sent to Template:", pending_returns)
 
-    nav_options = db_manager.get_nav_options(session.get('role'))
+    # ✅ Fetch Navigation Data Correctly
+    nav_data = db_manager.get_nav_options(session.get('role'))
+    nav_options = nav_data["nav"]
+    dropdown_options = nav_data["dropdown"]  # ✅ Ensure dropdown menu works
+
     return render_template(
         "farmer_returns.html",
         returns=pending_returns,
-        nav_options=nav_options
+        nav_options=nav_options,
+        dropdown_options=dropdown_options  # ✅ Fixed issue
     )
+
 
 
 
@@ -180,12 +192,3 @@ def report_return():
 
     # Redirect back to the farmer returns page after submission
     return redirect(url_for('returns.farmer_returns'))
-
-
-
-
-
-
-
-
-

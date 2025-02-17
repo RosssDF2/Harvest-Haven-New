@@ -27,58 +27,18 @@ class EnhancedDatabaseManager:
 
             print("Database initialized without resetting existing values.")
 
-             def initialize_database(self):
-        """Initialize the database with default values."""
-        with shelve.open(self.db_name, writeback=True) as db:
-            # Default users
-            if "users" not in db:
-                db["users"] = {
-                    "customer1": {
-                        "name": "Customer 1",
-                        "email": "customer1@example.com",
-                        "role": "customer",
-                        "points": 100,
-                        "balance": 200.0,
-                        "password": "customer123",
-                    },
-                    "farmer1": {
-                        "name": "Farmer 1",
-                        "email": "farmer1@example.com",
-                        "role": "farmer",
-                        "points": 200,
-                        "balance": 500.0,
-                        "password": "farmer123",
-                    },
-                    "farmer2": {
-                        "name": "Farmer 2",
-                        "email": "farmer2@example.com",
-                        "role": "farmer",
-                        "points": 150,
-                        "balance": 300.0,
-                        "password": "farmer123",
-                    },
-                }
-
             # Default products
             if "products" not in db:
                 db["products"] = {
-                    1: {
-                        "name": "Carrot",
-                        "price": 1.50,
-                        "quantity": 100,
-                        "category": "Vegetables",
-                        "image_url": "placeholder.png",
-                        "uploaded_by": "farmer1",  # Add the farmer's username
-                    },
-                    2: {
-                        "name": "Tomato",
-                        "price": 2.00,
-                        "quantity": 50,
-                        "category": "Vegetables",
-                        "image_url": "placeholder.png",
-                        "uploaded_by": "farmer2",
-                    },
+                    1: {"name": "Carrot", "price": 1.50, "quantity": 100, "category": "Vegetables",
+                        "image_url": "placeholder.png", "uploaded_by": "farmer1", "farmer_id": "farmer1"},
+                    2: {"name": "Tomato", "price": 2.00, "quantity": 50, "category": "Vegetables",
+                        "image_url": "placeholder.png", "uploaded_by": "farmer2", "farmer_id": "farmer2"},
                 }
+                for product_id, product in db["products"].items():
+                    if "farmer_id" not in product:
+                        product["farmer_id"] = product.get("uploaded_by", "unknown_farmer")  # Assign dynamically
+                db["products"] = db["products"]  # Save changes
 
                 # Default ownership
                 if "ownership" not in db:
@@ -202,11 +162,10 @@ class EnhancedDatabaseManager:
         with shelve.open(self.db_name, writeback=True) as db:
             products = db.get("products", {})
 
-            # Ensure every product has a farmer_id
+            # Ensure every product has a farmer_id or uploaded_by
             for product_id, product in products.items():
                 if "farmer_id" not in product:
-                    product["farmer_id"] = product.get("uploaded_by",
-                                                       "unknown_farmer")  # Assign based on uploader or default
+                    product["farmer_id"] = product.get("uploaded_by", "unknown_farmer")
             db["products"] = products  # Save changes
 
         return products
@@ -229,24 +188,29 @@ class EnhancedDatabaseManager:
         """Return navigation options based on user role."""
         nav_options = {
             "farmer": [
-                {"name": "Profile", "url": "/profile/profile"},
                 {"name": "Products", "url": "/products/"},
                 {"name": "Discounted Products", "url": "/discounted/"},
                 {"name": "Your Farm", "url": "/rewards/farmer_plant_a_future"},
-                {"name": "Orders", "url": "/checkout/farmer_purchases"},  # ✅ Added Farmer Orders Section
                 {"name": "Returns", "url": "/returns/farmer_returns"},
             ],
             "customer": [
-                {"name": "Profile", "url": "/profile/profile"},
                 {"name": "Products", "url": "/products/"},
                 {"name": "Discounted Products", "url": "/discounted/"},
-                {"name": "Rewards", "url": "/rewards/"},
                 {"name": "Plant a Future", "url": "/rewards/plant_a_future"},
                 {"name": "Returns", "url": "/returns/"},
                 {"name": "Checkout", "url": "/checkout/"},
             ],
         }
-        return nav_options.get(role, [])
+
+        # ✅ Ensure the Rewards URL is correct in the dropdown
+        dropdown_options = [
+            {"name": "Profile", "url": "/profile/profile"},
+            {"name": "Rewards", "url": "/rewards/"},
+            {"name": "Divider", "url": None},  # Divider for better separation
+            {"name": "Logout", "url": "/profile/logout", "class": "text-danger"},
+        ]
+
+        return {"nav": nav_options.get(role, []), "dropdown": dropdown_options}
 
     def get_all_items(self):
         """Retrieve all discounted items."""
@@ -641,6 +605,7 @@ class EnhancedDatabaseManager:
         with shelve.open(self.db_name) as db:
             return db.get("discounted_items", {})
 
+
     def log_report(self, user_id, product_id, customer_id, issue):
         """
         Logs a report for a return issue.
@@ -664,7 +629,7 @@ class EnhancedDatabaseManager:
                 "product_id": product_id,
                 "issue": issue,
                 "reported_by": user_id,  # Who reported the issue
-                "status": "reported",     # Optional: You can track the status of the report
+                "status": "reported",  # Optional: You can track the status of the report
             })
 
             # Save the reports back into the database

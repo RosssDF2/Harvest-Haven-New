@@ -57,13 +57,22 @@ def login():
 
     return render_template('profile_login.html')
 
-@profile_bp.route('/reset_password')
+@profile_bp.route('/reset_request', methods=['GET', 'POST'])
 def reset_request():
-    return render_template('reset_request.html',title='Reset Request',form=form)
+    """Handle password reset request."""
+    if request.method == 'POST':
+        username = request.form.get('username')
+        users = db_manager.get_users()
+
+        if username in users:
+            flash("Username found! Proceed to reset password.", "success")
+            return redirect(url_for('profile.reset_password', username=username))
+        else:
+            flash("Username not found. Please try again.", "error")
+
+    return render_template('reset_request.html')
 
 
-@profile_bp.route('/profile')
-@profile_bp.route('/profile')
 @profile_bp.route('/profile')
 def profile():
     """Display user profile."""
@@ -72,11 +81,15 @@ def profile():
 
     user_id = session['user_id']
     user = db_manager.get_users().get(user_id)
-    nav_options = db_manager.get_nav_options(session['role'])
 
     if not user:
         flash("User not found.", "error")
         return redirect(url_for('profile.login'))
+
+    # ✅ Retrieve structured nav and dropdown options
+    nav_data = db_manager.get_nav_options(session['role'])
+    nav_options = nav_data["nav"]  # ✅ Get navigation links
+    dropdown_options = nav_data["dropdown"]  # ✅ Get dropdown menu options
 
     user_points = user.get("points", 0)
     user_balance = round(user.get("balance", 0), 2)
@@ -88,6 +101,7 @@ def profile():
             "customer_profile.html",
             user=user,
             nav_options=nav_options,
+            dropdown_options=dropdown_options,  # ✅ Pass dropdown options
             user_points=user_points,
             user_balance=user_balance,
             transactions=transactions,
@@ -98,8 +112,16 @@ def profile():
             "farmer_profile.html",
             user=user,
             nav_options=nav_options,
+            dropdown_options=dropdown_options,  # ✅ Pass dropdown options
             user_points=user_points,
             user_balance=user_balance,
+        )
+    elif session['role'] == 'farmer':
+        return render_template(
+            "farmer_profile.html",
+            user=user,
+            nav_options=nav_options,
+            dropdown_options=dropdown_options,  # ✅ Fix for dropdown
         )
     else:
         flash("Invalid role.", "error")
@@ -148,3 +170,22 @@ def add_points():
         flash("Invalid points input. Please enter a valid number.", "error")
 
     return redirect(url_for('profile.profile'))
+
+@profile_bp.route('/reset_password/<username>', methods=['GET', 'POST'])
+def reset_password(username):
+    """Allow users to reset their password."""
+    users = db_manager.get_users()
+
+    if username not in users:
+        flash("Invalid username. Please try again.", "error")
+        return redirect(url_for('profile.reset_request'))
+
+    if request.method == 'POST':
+        new_password = request.form.get('password')
+        users[username]["password"] = new_password
+        db_manager.save_users(users)  # Save changes
+
+        flash("Password successfully updated!", "success")
+        return redirect(url_for('profile.login'))
+
+    return render_template('reset_password.html', username=username)
