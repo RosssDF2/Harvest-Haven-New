@@ -152,7 +152,34 @@ def handle_return():
 
     return redirect(url_for('returns.farmer_returns'))
 
+@return_bp.route('/report_return', methods=['POST'])
+def report_return():
+    """Allow farmers to report an issue with a return request."""
+    if session.get('role') != 'farmer':
+        flash("Unauthorized action.", "danger")
+        return redirect(url_for('returns.farmer_returns'))
 
+    product_id = request.form.get('product_id')
+    customer_id = request.form.get('customer_id')
+    issue = request.form.get('issue')
+
+    if not all([product_id, customer_id, issue]):
+        flash("Please provide a reason for reporting.", "danger")
+        return redirect(url_for('returns.farmer_returns'))
+
+    # Call the log_report method to log the report
+    db_manager.log_report(
+        user_id=session.get('user_id'),
+        product_id=product_id,
+        customer_id=customer_id,
+        issue=issue
+    )
+
+    # Flash a success message
+    flash("Report submitted successfully.", "success")
+
+    # Redirect back to the farmer returns page after submission
+    return redirect(url_for('returns.farmer_returns'))
 
 
 
