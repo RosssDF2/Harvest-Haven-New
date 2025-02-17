@@ -79,31 +79,34 @@ def add_discounted():
         flash("All fields, including an image and expiry date, are required.", "error")
         return redirect(url_for('discounted.home'))
 
+    # ✅ Ensure expiry date is correctly formatted
+    try:
+        datetime.strptime(expiry_date, "%Y-%m-%d")
+    except ValueError:
+        flash("Invalid expiry date format. Use YYYY-MM-DD.", "error")
+        return redirect(url_for('discounted.home'))
+
     if not allowed_file(image.filename):
         flash("Invalid image format. Allowed formats: png, jpg, jpeg, gif.", "error")
         return redirect(url_for('discounted.home'))
 
-    try:
-        filename = secure_filename(image.filename)
-        image.save(os.path.join(UPLOAD_FOLDER, filename))
+    filename = secure_filename(image.filename)
+    image.save(os.path.join(UPLOAD_FOLDER, filename))
 
-        discounted_items = db_manager.get_all_items()
-        item_id = max(discounted_items.keys(), default=0) + 1
-        discounted_items[item_id] = {
-            "name": f"Discounted {name}",
-            "price": float(price),
-            "stock": int(stock),
-            "category": category,
-            "expiry_date": expiry_date,
-            "image_url": f"/static/uploads/{filename}",
-            "owner_id": user_id  # Store the farmer's user ID
-        }
-        db_manager.save_items(discounted_items)
+    discounted_items = db_manager.get_all_items()
+    item_id = max(discounted_items.keys(), default=0) + 1
+    discounted_items[item_id] = {
+        "name": f"Discounted {name}",
+        "price": float(price),
+        "stock": int(stock),
+        "category": category,
+        "expiry_date": expiry_date,  # ✅ Ensures expiry date is stored properly
+        "image_url": f"/static/uploads/{filename}",
+        "owner_id": user_id
+    }
+    db_manager.save_items(discounted_items)
 
-        flash(f"Discounted product '{name}' added successfully!", "success")
-    except Exception as e:
-        flash(f"Error adding discounted product: {e}", "error")
-
+    flash(f"Discounted product '{name}' added successfully!", "success")
     return redirect(url_for('discounted.home'))
 
 
@@ -112,17 +115,31 @@ def remove_expired_products():
     discounted_items = db_manager.get_all_items()
     current_datetime = datetime.now()
 
-    expired_items = [
-        item_id for item_id, item in discounted_items.items()
-        if datetime.strptime(item.get("expiry_date", "")[:10], "%Y-%m-%d").date() < current_datetime.date()
-    ]
+    expired_items = []
 
+    for item_id, item in discounted_items.items():
+        expiry_date_str = item.get("expiry_date", "").strip()
+
+        # ✅ Skip items with no expiry date
+        if not expiry_date_str:
+            print(f"Skipping item {item_id} due to missing expiry date.")
+            continue
+
+        try:
+            expiry_date = datetime.strptime(expiry_date_str, "%Y-%m-%d").date()
+            if expiry_date < current_datetime.date():
+                expired_items.append(item_id)
+        except ValueError:
+            print(f"Invalid expiry date format for item {item_id}: {expiry_date_str}")
+
+    # ✅ Remove expired items
     if expired_items:
         for item_id in expired_items:
             del discounted_items[item_id]
 
         db_manager.save_items(discounted_items)
         print(f"Removed expired products: {expired_items}")
+
 
 
 @discounted_bp.route('/delete_discounted/<int:item_id>', methods=['POST'])
