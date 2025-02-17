@@ -48,8 +48,6 @@
     </div>
 </header>
 
-<!-- ✅ Divider Bar -->
-<div class="header-divider"></div>
 
 <main class="container">
     <h1 class="text-success mb-4">Manage Your Products</h1>
@@ -95,6 +93,14 @@
 
                     <label for="image-{{ product.id }}" class="form-label">Image:</label>
                     <input type="file" id="image-{{ product.id }}" name="image" accept="image/*" class="form-control mb-2">
+
+                     <!-- Nutritional Facts Field -->
+                <!-- Nutritional Facts Field (Fix: Ensure product.nutritional_facts is prefilled) -->
+<div class="mb-3">
+    <label for="nutritional-{{ product.id }}" class="form-label">Nutritional Facts:</label>
+    <textarea id="nutritional-{{ product.id }}" name="nutritional_facts" class="form-control" rows="3">{{ product.nutritional_facts }}</textarea>
+</div>
+
 
                     <button type="submit" class="btn btn-primary w-100">Update</button>
                 </form>
@@ -144,6 +150,11 @@
                 <div class="mb-3">
                     <label for="add-image" class="form-label">Image:</label>
                     <input type="file" id="add-image" name="image" accept="image/*" class="form-control" required>
+                </div>
+                <!-- Nutritional Facts Field -->
+                <div class="mb-3">
+                <label for="nutritional_facts" class="form-label">Nutritional Facts:</label>
+                <textarea id="nutritional_facts" name="nutritional_facts" class="form-control" rows="3"></textarea>
                 </div>
 
                 <button type="submit" class="btn btn-success w-100">Add Product</button>
