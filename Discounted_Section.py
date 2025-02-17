@@ -24,13 +24,12 @@ def allowed_file(filename):
 def home():
     """Main discounted products page with filtering and search."""
     user_role = session.get('role')
-    user_id = session.get('user_id')  # Get current logged-in user
+    user_id = session.get('user_id')
     nav_options = db_manager.get_nav_options(user_role)
 
     remove_expired_products()
     discounted_items = db_manager.get_all_items()
 
-    # If the user is a farmer, only show their own products
     if user_role == 'farmer':
         discounted_items = {
             item_id: item for item_id, item in discounted_items.items()
@@ -52,13 +51,16 @@ def home():
             if search_query in item.get('name', '').lower()
         }
 
+    # Ensure stock is never displayed as negative
+    for item in discounted_items.values():
+        item['stock'] = max(0, item.get('stock', 0))  # Ensure stock is at least 0
+
     discounted_items_with_ids = [
         {"id": item_id, **item_data} for item_id, item_data in discounted_items.items()
     ]
 
     template = "customer_discounted_products.html" if user_role == 'customer' else "farmer_discounted_products.html"
     return render_template(template, items=discounted_items_with_ids, nav_options=nav_options)
-
 
 @discounted_bp.route('/add_discounted', methods=['POST'])
 def add_discounted():
@@ -232,6 +234,14 @@ def buy_discounted(item_id):
         flash("Product not found.", "error")
         return redirect(url_for('discounted.home'))
 
+    if quantity <= 0:
+        flash("Invalid quantity. Please enter a valid amount.", "error")
+        return redirect(url_for('discounted.home'))
+
+    if item['stock'] < quantity:
+        flash("Insufficient stock available.", "error")
+        return redirect(url_for('discounted.home'))
+
     total_price = item['price'] * quantity
     user_id = session.get('user_id')
     user_balance = db_manager.get_users().get(user_id, {}).get("balance", 0)
@@ -240,12 +250,14 @@ def buy_discounted(item_id):
         flash("Insufficient balance to complete the purchase.", "error")
         return redirect(url_for('discounted.home'))
 
-    if item['stock'] < quantity:
-        flash("Insufficient stock available.", "error")
+    # Ensure stock never goes negative
+    new_stock = item['stock'] - quantity
+    if new_stock < 0:
+        flash("Not enough stock available for this purchase.", "error")
         return redirect(url_for('discounted.home'))
 
     # Update the item stock
-    item['stock'] -= quantity
+    item['stock'] = new_stock
     discounted_items[item_id] = item
     db_manager.save_items(discounted_items)
 
