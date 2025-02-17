@@ -26,12 +26,9 @@
     <div class="container d-flex justify-content-between align-items-center">
         <!-- Left Section: Clickable Logo, Balance, Points -->
         <div class="d-flex align-items-center">
-            <!-- Clickable Logo -->
             <a href="{{ url_for('profile.profile') }}" class="d-flex align-items-center text-decoration-none">
                 <img src="{{ url_for('static', filename='uploads/Harvest Haven.png') }}" alt="Harvest Haven Logo" class="logo-img">
             </a>
-
-            <!-- User Stats -->
             <div class="ms-3">
                 <p class="mb-0 fs-6">
                     <a href="{{ url_for('rewards.add_balance') }}" class="fw-bold text-success text-decoration-none">
@@ -55,8 +52,8 @@
 
         <!-- Right Section: Cart Icon & Dropdown -->
         <div class="d-flex align-items-center">
-            <!-- ✅ Cart Icon for Checkout -->
-            <a href="/checkout/" class="text-dark me-3">
+            <!-- Cart Icon -->
+            <a href="{{ url_for('checkout.checkout') }}" class="text-dark me-3">
                 <img src="{{ url_for('static', filename='icons/cart.png') }}" alt="Cart" style="width: 30px; height: 30px;">
             </a>
 
@@ -79,11 +76,9 @@
     </div>
 </header>
 
-<!-- ✅ Divider Bar -->
-<div class="header-divider"></div>
-
 
 <main class="container">
+    <br>
     <div class="text-center mb-5">
         <h1 class="text-success">Discounted Products</h1>
     </div>

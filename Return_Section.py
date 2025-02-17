@@ -5,6 +5,7 @@ import shelve
 return_bp = Blueprint('returns', __name__)
 db_manager = EnhancedDatabaseManager()
 
+
 @return_bp.route('/')
 def returns():
     """Display customer's purchased products for returns, grouped by product name."""
@@ -14,15 +15,19 @@ def returns():
 
     user_id = session.get('user_id')
     ownership = db_manager.get_ownership(user_id)
-    owned_products_ids = ownership.get("products", [])  # ✅ Ensure this is updated in checkout
+    owned_products_ids = ownership.get("products", [])
     returned_items = ownership.get("returns", {})
     all_products = db_manager.get_products()
+    users = db_manager.get_users()
+
+    # ✅ Fetch User's Points
+    user_points = users.get(user_id, {}).get("points", 0)
 
     grouped_products = {}
     for product_id in owned_products_ids:
         if product_id in all_products:
             product_name = all_products[product_id]["name"]
-            total_purchased = owned_products_ids.count(product_id)  # ✅ Count occurrences for accurate quantity
+            total_purchased = owned_products_ids.count(product_id)
             total_returned = returned_items.get(product_id, 0)
             remaining_quantity = total_purchased - total_returned
 
@@ -43,13 +48,10 @@ def returns():
     return render_template(
         "customer_returns.html",
         products=list(grouped_products.values()),
+        user_points=user_points,  # ✅ Ensure points are passed
         nav_options=nav_options,
-        dropdown_options=dropdown_options,  # ✅ Ensure dropdown menu loads
+        dropdown_options=dropdown_options,
     )
-
-
-
-
 
 
 @return_bp.route('/submit_return', methods=['POST'])

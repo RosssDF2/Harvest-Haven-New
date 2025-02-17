@@ -23,7 +23,7 @@ header {
 }
 /* ✅ Logo Size (Increased Without Affecting Header Height) */
 .logo-img {
-    width: 80px; /* Increase logo size */
+    width: 150px; /* Increase logo size */
     height: auto; /* Maintain aspect ratio */
     margin-right: 20px;
 }
@@ -249,3 +249,9 @@ button:hover {
     background-color: white; /* Default white background */
 }
 
+.tree-box-center {
+    width: 50%; /* Adjust width as needed */
+    max-width: 400px; /* Prevents excessive stretching */
+    margin: auto; /* Centers the box */
+    text-align: center; /* Aligns content in center */
+}

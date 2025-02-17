@@ -211,7 +211,8 @@ function loadFarmerCustomerTrees() {
             const plantImage = phaseImages[tree.phase] || phaseImages["Seedling"];
 
             const treeBox = document.createElement('div');
-            treeBox.className = "card mt-2 p-2 border-secondary position-relative";
+treeBox.className = "card mt-2 p-2 border-secondary position-relative tree-box-center";
+
             treeBox.setAttribute("id", `tree-box-${tree.id}`);
 
             treeBox.innerHTML = `
@@ -318,8 +319,12 @@ function createCustomerTreeBox(treeId, treeType, customerName, deviceId, health,
     </div>
 </header>
 
-<!-- ✅ Divider Bar -->
-<div class="header-divider"></div>
+
+
+<div class="text-center mb-5">
+    <br>
+        <h1 class="text-success">Your Farm</h1>
+    </div>
 
 
 <!-- Register for Plant a Future Button -->
@@ -330,20 +335,31 @@ function createCustomerTreeBox(treeId, treeType, customerName, deviceId, health,
 
 <!-- IoT Device Registration -->
 <div id="iot-registration" style="display: none;">
-    <div class="card mb-4">
-        <div class="card-header bg-success text-white">Manage IoT Devices & Assigned Plants</div>
-        <div class="card-body">
-            <label for="device-id" class="form-label">Enter a 12-digit IoT Device ID:</label>
-            <input type="text" id="device-id" class="form-control mb-2" maxlength="12" placeholder="Enter 12-digit ID" required>
-            <button type="button" class="btn btn-success" onclick="registerIoTDevice()">Register IoT Device</button>
+    <div class="container"> <!-- Bootstrap Container -->
+        <div class="row justify-content-center"> <!-- Center Content -->
+            <div class="col-md-6"> <!-- Set width to 6 columns (50% of screen) -->
+                <div class="card mb-4">
+                    <div class="card-header bg-success text-white">Manage IoT Devices & Assigned Plants</div>
+                    <div class="card-body">
+                        <label for="device-id" class="form-label">Enter a 12-digit IoT Device ID:</label>
+                        <input type="text" id="device-id" class="form-control mb-2" maxlength="12" placeholder="Enter 12-digit ID" required>
+                        <button type="button" class="btn btn-success" onclick="registerIoTDevice()">Register IoT Device</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row justify-content-center"> <!-- Center Content -->
+            <div class="col-md-8"> <!-- Adjust width for IoT devices -->
+                <h3 class="text-primary text-center">Your IoT Devices & Assigned Trees</h3>
+                <div id="iot-devices" class="row">
+                    <!-- IoT Devices with customer-planted trees will be loaded here -->
+                </div>
+            </div>
         </div>
     </div>
-
-    <h3 class="text-primary">Your IoT Devices & Assigned Trees</h3>
-    <div id="iot-devices">
-        <!-- IoT Devices with customer-planted trees will be loaded here -->
-    </div>
 </div>
+
 
  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js"></script>
 

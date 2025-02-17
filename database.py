@@ -27,6 +27,8 @@ class EnhancedDatabaseManager:
 
             print("Database initialized without resetting existing values.")
 
+
+
             # Default products
             if "products" not in db:
                 db["products"] = {
@@ -84,7 +86,6 @@ class EnhancedDatabaseManager:
                         "image_url": "https://pngimg.com/uploads/tomato/tomato_PNG12592.png",
                     },
                 }
-
             if "tree_types" not in db:
                 db["tree_types"] = {
                     "mango": {

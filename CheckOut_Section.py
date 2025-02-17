@@ -141,7 +141,6 @@ def process_checkout():
     return redirect(url_for('checkout.confirmation'))
 
 
-
 @checkout_bp.route('/')
 def checkout():
     """Display the checkout page."""
@@ -149,7 +148,10 @@ def checkout():
     total = sum(item['price'] * item['quantity'] for item in cart)
     user_id = session.get('user_id')
     users = EnhancedDatabaseManager().get_users()
+
+    # ✅ Fetch Balance & Points
     balance = users.get(user_id, {}).get("balance", 0)
+    user_points = users.get(user_id, {}).get("points", 0)  # ✅ Fetch points
 
     # ✅ Get navigation options for customers
     nav_data = EnhancedDatabaseManager().get_nav_options('customer')
@@ -161,8 +163,9 @@ def checkout():
         cart_items=cart,
         total=total,
         user_balance=balance,
-        nav_options=nav_options,  # ✅ Added navigation
-        dropdown_options=dropdown_options  # ✅ Ensures dropdown menu works
+        user_points=user_points,  # ✅ Pass points to template
+        nav_options=nav_options,
+        dropdown_options=dropdown_options
     )
 
 
